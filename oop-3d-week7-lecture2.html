@@ -1,0 +1,1245 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OOP · Week 7 · Lecture 2 · When inheritance is the wrong answer (3D)</title>
+<!--
+  OOP · Week 7 · Lecture 2 · When inheritance is the wrong answer (3D)
+  One file, no internet needed. Open in Chrome or Edge.
+  Keys: Right / Space = next step, Left = back, F = full screen.
+  Drag any 3D scene with the mouse to look at it from another side.
+  Built from src/w7l2.js by src/build.py. Edit the source, not this file.
+-->
+<style>
+:root {
+  --page: #E4F1F1; --stage: #FFFFFF; --ink: #10292C; --muted: #5B7275;
+  --vio: #0A8F8A; --vio-d: #036672; --tint: #E1F3F1; --tint2: #F3FAF9; --line: #C5E5E2;
+  --amber: #C9761F; --amber-t: #FCEEDD; --green: #1B7F5A; --green-t: #E1F3E9; --red: #AC3B2A; --red-t: #FBE8E5;
+  --device: #4B2E83; --software: #6E52B5; --network: #1B7F5A; --data: #C9761F; --people: #AC3B2A;
+  --f-head: Cambria, "Source Serif 4", Georgia, serif;
+  --f-body: Calibri, "Segoe UI", Inter, system-ui, sans-serif;
+  --f-mono: "Courier New", Consolas, monospace;
+  --move: 1200ms;
+  --ease: cubic-bezier(.45,.05,.25,1);
+  --ui-bg: #FFFFFF; --ui-fg: #10292C; --ui-line: #BBDAD7;
+}
+@media (prefers-reduced-motion: reduce) { :root { --move: 1ms; } }
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--page); color: var(--ui-fg); font-family: var(--f-body); }
+.shell { max-width: 1400px; margin: 0 auto; padding: 14px 16px 28px; display: grid; gap: 10px; }
+.frame { position: relative; width: 100%; overflow: hidden; border-radius: 10px; box-shadow: 0 6px 28px rgb(5 60 62 / .22); background: var(--stage); }
+.frame:fullscreen { background: #061D20; border-radius: 0; }
+.stage { position: absolute; left: 0; top: 0; width: 1280px; height: 720px; transform-origin: 0 0; background: var(--stage); overflow: hidden; color: var(--ink); }
+.slide { position: absolute; inset: 0; }
+
+/* slide chrome */
+.kicker { position: absolute; left: 64px; top: 28px; font: 700 14px var(--f-body); letter-spacing: .14em; text-transform: uppercase; color: var(--vio); z-index: 5; }
+.slide.practice .kicker { color: var(--amber); }
+.slide.solution .kicker { color: var(--green); }
+.ttl { position: absolute; left: 64px; top: 50px; right: 64px; font: 700 38px/1.15 var(--f-head); color: var(--vio-d); z-index: 5; }
+.slide.practice .ttl { color: var(--amber); }
+.slide.solution .ttl { color: var(--green); }
+.cap { position: absolute; left: 64px; right: 64px; top: 602px; height: 70px; border-radius: 10px; background: var(--tint); padding: 0 20px; display: flex; align-items: center; gap: 14px; z-index: 6;
+  font: 500 20px/1.3 var(--f-body); color: var(--ink); transition: background 400ms, opacity 300ms; }
+.cap.empty { opacity: 0; }
+.cap .txt { flex: 1; }
+.cap .tags { display: flex; gap: 8px; flex: none; }
+.cap.good { background: var(--green-t); } .cap.warn { background: var(--amber-t); } .cap.bad { background: var(--red-t); }
+.tag { display: inline-block; padding: 5px 13px; border-radius: 999px; color: #fff; font: 700 15px var(--f-body); letter-spacing: .03em; animation: pop 450ms ease-out; white-space: nowrap; }
+.t-device { background: var(--device); } .t-software { background: var(--software); } .t-network { background: var(--network); } .t-data { background: var(--data); } .t-people { background: var(--people); }
+@keyframes pop { 0% { transform: scale(.4); opacity: 0; } 60% { transform: scale(1.12); } 100% { transform: scale(1); opacity: 1; } }
+.foot { position: absolute; left: 64px; top: 688px; font: 13px var(--f-body); color: var(--muted); z-index: 6; }
+.ctr { position: absolute; right: 64px; top: 688px; font: 700 12px var(--f-mono); color: var(--muted); z-index: 6; }
+.timebar { position: absolute; left: 64px; right: 64px; top: 602px; height: 70px; border-radius: 10px; background: var(--amber-t); color: var(--amber); font: 700 21px var(--f-body); display: flex; align-items: center; padding: 0 22px; z-index: 6; }
+
+/* 3D world */
+.vp { position: absolute; overflow: hidden; perspective: 2000px; perspective-origin: 50% 40%; background: linear-gradient(#FFFFFF, var(--tint2) 50%, #DDEFED); cursor: grab; touch-action: none; }
+.vp.clear { background: none; }
+.vp:active { cursor: grabbing; }
+.world { position: absolute; left: 50%; top: 50%; width: 0; height: 0; transform-style: preserve-3d; transition: transform var(--move) var(--ease); }
+.world.nt, .world.nt .bb { transition: none !important; }
+.b, .grp { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-style: preserve-3d; transition: transform var(--move) var(--ease); }
+.b.nt { transition: none; }
+.f { position: absolute; left: 0; top: 0; transform-origin: 0 0; overflow: hidden; transition: opacity 500ms, filter 500ms; }
+.hide .f, .hide .bb, .bb.hide { opacity: 0; }
+.dim .f { filter: grayscale(1) brightness(1.3); opacity: .45; }
+.dim .bb { opacity: .25; }
+.ground { position: absolute; left: 0; top: 0; border-radius: 40px; background-color: #EEF7F6;
+  background-image: linear-gradient(#D2E9E6 2px, transparent 2px), linear-gradient(90deg, #D2E9E6 2px, transparent 2px); background-size: 80px 80px; box-shadow: 0 0 0 4px #C8E3E0; }
+.plate { position: absolute; left: 0; top: 0; border-radius: 20px; display: flex; align-items: flex-end; justify-content: center; padding: 12px; text-align: center;
+  font: 800 22px var(--f-body); letter-spacing: .14em; text-transform: uppercase; color: var(--vio-d); transition: opacity 500ms; }
+.plate.city { background: #DCEFEC; border: 3px dashed #93CEC7; }
+.plate.zone { background: #FFFFFF; border: 3px solid #C8E3E0; }
+.plate.disc { border-radius: 50%; background: radial-gradient(#3FB8AE, #036672 70%); box-shadow: 0 0 0 10px rgb(255 255 255 / .12); }
+.plate.small { font-size: 16px; letter-spacing: .06em; align-items: center; }
+.plate.hide { opacity: 0; }
+.strip { position: absolute; left: 0; top: 0; transform-origin: 0 0; border-radius: 5px; background: #B4DAD5; }
+.strip.on { background: repeating-linear-gradient(90deg, var(--network) 0 16px, #A6E2C9 16px 28px); background-size: 28px 100%; animation: flow .7s linear infinite; }
+.strip.lane { background: #CDE7E4; }
+@keyframes flow { to { background-position: 28px 0; } }
+.bb { position: absolute; left: 0; top: 0; width: 0; height: 0; transform: var(--p) rotateZ(calc(var(--rz) * -1)) rotateX(calc(var(--rx) * -1)); transition: transform var(--move) var(--ease), opacity 400ms; }
+.bb > .in { position: absolute; left: 0; bottom: 0; transform: translateX(-50%); white-space: nowrap; }
+.lab { display: inline-block; background: #fff; border: 2px solid var(--vio); color: var(--vio-d); font: 700 19px var(--f-body); padding: 3px 12px; border-radius: 999px; box-shadow: 0 3px 8px rgb(5 60 62 / .18); }
+.lab.big { font-size: 23px; padding: 5px 15px; }
+.lab.good { border-color: var(--green); color: var(--green); } .lab.bad { border-color: var(--red); color: var(--red); } .lab.warn { border-color: var(--amber); color: var(--amber); }
+.pk { display: inline-block; background: var(--data); color: #fff; font: 700 16px var(--f-mono); padding: 4px 10px; border-radius: 8px; box-shadow: 0 3px 8px rgb(0 0 0 / .25); }
+.pk.lock { background: #241C3B; } .pk.tick { background: #1976D2; } .pk.sms { background: var(--network); }
+.say { display: inline-block; white-space: normal; width: 250px; background: #fff; border-left: 6px solid var(--vio); border-radius: 10px; padding: 9px 13px; font: 600 16px/1.3 var(--f-body); color: var(--ink); box-shadow: 0 4px 12px rgb(5 60 62 / .2); text-align: left; }
+.say i { display: block; font-weight: 400; color: var(--muted); margin-top: 3px; }
+.say.good { border-color: var(--green); } .say.bad { border-color: var(--red); } .say.warn { border-color: var(--amber); }
+.rings { position: relative; width: 0; height: 0; }
+.rings i { position: absolute; left: -36px; top: -36px; width: 72px; height: 72px; border: 4px solid var(--network); border-radius: 50%; opacity: 0; }
+.on .rings i { animation: ring 1.8s ease-out infinite; }
+.on .rings i:nth-child(2) { animation-delay: .6s; } .on .rings i:nth-child(3) { animation-delay: 1.2s; }
+@keyframes ring { 0% { transform: scale(.2); opacity: .95; } 100% { transform: scale(1.9); opacity: 0; } }
+
+/* faces with content */
+.ftxt { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; color: #fff; font: 700 20px var(--f-body); padding: 2px 6px; }
+.ftxt.word { font: 700 46px var(--f-head); }
+.ftxt.ped { font: 800 25px var(--f-body); letter-spacing: .04em; justify-content: flex-start; padding-left: 14px; gap: 10px; }
+.ftxt.ped b { display: inline-flex; width: 30px; height: 30px; border-radius: 50%; background: #fff; align-items: center; justify-content: center; font-size: 18px; }
+.ftxt.dark { color: var(--ink); }
+.ftxt.q { font: 800 54px var(--f-head); }
+.scr { position: absolute; inset: 8px 6px; border-radius: 7px; background: #F1EDFA; display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; padding: 6px; font: 700 14px/1.25 var(--f-body); color: var(--ink); }
+.scr.big { inset: 16px 12px; border-radius: 14px; padding: 14px; gap: 10px; font-size: 25px; }
+.bub { align-self: flex-end; background: #D5F5C6; border-radius: 8px; padding: 3px 7px; max-width: 100%; }
+.bub.in { align-self: flex-start; background: #fff; }
+.bub.sys { align-self: stretch; background: #fff; border: 1px solid var(--line); text-align: center; }
+.tk { color: #8C87A0; font-weight: 800; } .tk.blue { color: #1976D2; }
+.dots { align-self: flex-start; background: #fff; border-radius: 8px; padding: 3px 9px; letter-spacing: .15em; animation: blink 1.2s infinite; }
+.rack { position: absolute; inset: 7px; display: grid; grid-template-rows: repeat(8, 1fr); gap: 4px; }
+.rack i { background: #3B3163; border-radius: 2px; position: relative; }
+.rack i::after { content: ""; position: absolute; right: 5px; top: 50%; width: 5px; height: 5px; margin-top: -2.5px; border-radius: 50%; background: #7CF2B0; animation: blink 1.4s infinite; }
+.rack i:nth-child(2n)::after { animation-delay: .5s; } .rack i:nth-child(3n)::after { animation-delay: .9s; background: #FFD27A; }
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+.sway { animation: sway 7s ease-in-out infinite alternate; }
+@keyframes sway { from { transform: rotateZ(-30deg); } to { transform: rotateZ(30deg); } }
+
+/* cover */
+.cv-bg { position: absolute; inset: 0; background: radial-gradient(1200px 700px at 78% 60%, #13A39B, #036672 55%, #02343A); }
+.cv-text { position: absolute; left: 64px; top: 150px; width: 560px; color: #fff; z-index: 5; }
+.cv-text .ck { font: 700 16px var(--f-body); letter-spacing: .16em; color: #C5ECE7; }
+.cv-text .ct { font: 700 68px/1.05 var(--f-head); margin-top: 14px; }
+.cv-text .cs { font: 400 26px/1.3 var(--f-body); color: #E0F5F2; margin-top: 18px; }
+.cv-text .cb { display: inline-block; margin-top: 34px; padding: 9px 16px; border-radius: 999px; background: rgb(255 255 255 / .14); font: 600 16px var(--f-body); color: #fff; }
+.slide.cover .foot, .slide.cover .ctr { color: #A9DCD5; }
+
+/* 2D overlays */
+.ov { position: absolute; z-index: 7; transition: opacity 500ms, transform 500ms; }
+.ov.hide { opacity: 0; transform: translateY(14px); pointer-events: none; }
+.veil { background: rgb(255 255 255 / .86); }
+.card { border-radius: 14px; background: #fff; padding: 18px 22px; box-shadow: 0 6px 22px rgb(5 60 62 / .16); font: 400 19px/1.4 var(--f-body); color: var(--ink); }
+.card h4 { margin: 0 0 6px; font: 700 22px/1.2 var(--f-body); color: var(--vio-d); }
+.card.red { background: var(--red-t); } .card.red h4 { color: var(--red); }
+.card.amber { background: var(--amber-t); } .card.amber h4 { color: var(--amber); }
+.card ol { margin: 6px 0 0; padding-left: 24px; } .card li { margin: 5px 0; }
+.card .lbl { font: 700 13px var(--f-body); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin: 12px 0 6px; }
+.card .tagrow { display: flex; flex-wrap: wrap; gap: 6px; }
+.card .tagrow .tag { animation: none; }
+
+/* controls */
+.controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.btns { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.controls button, .controls select { font: 600 14px var(--f-body); padding: 8px 14px; border-radius: 8px; border: 1px solid var(--ui-line); background: var(--ui-bg); color: var(--ui-fg); cursor: pointer; }
+.controls select { max-width: 360px; }
+.controls button.primary { background: var(--vio-d); color: #fff; border-color: var(--vio-d); }
+.controls button:disabled { opacity: .4; cursor: not-allowed; }
+.controls button:focus-visible, .controls select:focus-visible { outline: 3px solid var(--vio); outline-offset: 2px; }
+.pos { font: 700 13px var(--f-mono); opacity: .75; }
+.hint { font: 14px var(--f-body); opacity: .75; }
+.notes { background: #fff; border: 1px solid var(--ui-line); border-radius: 10px; padding: 14px 18px; font: 16px/1.55 var(--f-body); white-space: pre-wrap; }
+.notes b { display: block; margin-bottom: 4px; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; opacity: .7; }
+
+/* ---------- OOP pieces: cabinets (classes), glass objects, name tags, call ball, code panel ---------- */
+.tag { background: var(--vio-d); }
+.ftxt.mono { font-family: var(--f-mono); font-weight: 700; }
+.ftxt.cabname { font: 700 21px var(--f-mono); letter-spacing: .01em; }
+.lab.mono { font-family: var(--f-mono); }
+.drw .f { transition: background 400ms; }
+.drw.hit .f { background: #A8EBD6 !important; }
+.drw.bad .f { background: #F4C3BA !important; }
+.drw.warn .f { background: #FFE0A8 !important; }
+.drw.ghost .f { background: #E7EFEE !important; }
+.drw.ghost .ftxt { color: #9BB3B0; }
+.glass > .f { background: rgb(10 143 138 / .08) !important; border: 2px solid rgb(10 143 138 / .55); box-sizing: border-box; }
+.val .f { transition: background 400ms; }
+.val.hit .f { background: #BFF2DF !important; }
+.val.bad .f { background: #F8D2CA !important; }
+.ball .f { border-radius: 50%; background: radial-gradient(circle at 35% 35%, #FFF3C4, #F2B33D 55%, #C98510) !important; box-shadow: 0 0 18px 6px rgb(242 179 61 / .55); }
+.pk.call { background: #8A5A00; font-size: 24px; padding: 5px 12px; }
+.strip.ref { background: #2E5D61; border-radius: 4px; transition: transform var(--move) var(--ease), width var(--move) var(--ease); }
+.strip.ref.bad { background: var(--red); } .strip.ref.good { background: var(--green); } .strip.ref.dash { background: repeating-linear-gradient(90deg, #2E5D61 0 14px, transparent 14px 24px); }
+.ahead { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-origin: 0 0; transition: transform var(--move) var(--ease); }
+.ahead::before { content: ""; position: absolute; left: -26px; top: -13px; width: 26px; height: 26px; background: #2E5D61; clip-path: polygon(0 0, 100% 50%, 0 100%); }
+.ahead.bad::before { background: var(--red); } .ahead.good::before { background: var(--green); }
+.say.err { width: auto; max-width: 560px; font: 700 19px/1.3 var(--f-mono); background: #FFF4F2; }
+.burst .err { animation: pop 450ms ease-out; }
+.code { border-radius: 12px; background: #0C2427; color: #E3F2F0; padding: 12px 0; font-family: var(--f-mono); font-weight: 600; line-height: 1.45; box-shadow: 0 8px 26px rgb(5 40 44 / .35); white-space: pre; overflow: hidden; }
+.code .cttl { padding: 0 18px 8px; font: 700 13px var(--f-body); letter-spacing: .12em; text-transform: uppercase; color: #7FB8B1; }
+.code .ln { padding: 0 16px; border-left: 5px solid transparent; transition: background 300ms, opacity 300ms; min-height: 1.45em; }
+.code .ln.on { background: rgb(0 168 150 / .32); border-left-color: #43E3CB; }
+.code .ln.good { background: rgb(27 127 90 / .45); border-left-color: #7CF2B0; }
+.code .ln.bad { background: rgb(172 59 42 / .55); border-left-color: #FF8A75; }
+.code .ln.dim { opacity: .35; }
+.code .kw { color: #78E1D2; font-weight: 800; } .code .st { color: #FFD27A; } .code .nm { color: #FFB0C8; } .code .dec { color: #C7A8FF; } .code .cm { color: #8EA9A6; font-style: italic; font-weight: 400; }
+.code.out { background: #F4FAF9; color: var(--ink); box-shadow: 0 4px 14px rgb(5 40 44 / .18); border: 2px solid var(--line); }
+.code.out .cttl { color: var(--muted); }
+.code.out span { color: inherit !important; font-weight: inherit; font-style: normal; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="frame" id="frame"><div class="stage" id="stage"></div></div>
+  <div class="controls">
+    <div class="btns">
+      <button id="prev" aria-label="Back">← Back</button>
+      <button id="next" class="primary" aria-label="Next">Next →</button>
+      <button id="again">Replay slide</button>
+      <button id="full">Full screen</button>
+      <label for="jump" class="hint">Go to</label>
+      <select id="jump"></select>
+    </div>
+    <span class="pos" id="pos"></span>
+  </div>
+  <span class="hint">→ or Space: next step. ←: back. F: full screen. Drag a 3D scene with the mouse or a finger to turn it.</span>
+</div>
+<script>
+window.OOP3D = (() => {
+"use strict";
+const stage = document.getElementById("stage"), frame = document.getElementById("frame");
+const RM = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const T = (ms) => (RM ? 1 : ms);
+const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+function el(parent, cls, html) { const e = document.createElement("div"); if (cls) e.className = cls; if (html != null) e.innerHTML = html; parent.appendChild(e); return e; }
+function shade(hex, f) {
+  const n = parseInt(hex.slice(1), 16), t = f < 0 ? 0 : 255, p = Math.abs(f);
+  const ch = (v) => Math.round(v + (t - v) * p);
+  return `rgb(${ch(n >> 16)},${ch((n >> 8) & 255)},${ch(n & 255)})`;
+}
+const COL = { Device: "#4B2E83", Software: "#6E52B5", Network: "#1B7F5A", Data: "#C9761F", People: "#AC3B2A" };
+const tagsHTML = (a) => (a || []).map((t) => `<span class="tag t-${t.toLowerCase()}">${t}</span>`).join("");
+let lastDrag = 0;
+
+// ---------------- 3D world ----------------
+// Ground coordinates: x runs left to right, y runs towards the viewer, z is height above the ground.
+function World(root, rect, cls) {
+  const vp = el(root, "vp" + (cls ? " " + cls : ""));
+  Object.assign(vp.style, { left: rect.x + "px", top: rect.y + "px", width: rect.w + "px", height: rect.h + "px" });
+  const world = el(vp, "world");
+  const timers = [], anims = [];
+  let camNow = { x: 0, y: 0, s: 1, rx: 56, rz: 16, px: 0, py: 50 }, orbit = { rz: 0, rx: 0 };
+  const W = { vp, world };
+
+  function applyCam() {
+    const c = camNow, rx = Math.max(15, Math.min(82, c.rx + orbit.rx)), rz = c.rz + orbit.rz;
+    world.style.setProperty("--rx", rx + "deg");
+    world.style.setProperty("--rz", rz + "deg");
+    world.style.transform = `translate3d(${c.px}px,${c.py}px,0) scale(${c.s}) rotateX(${rx}deg) rotateZ(${rz}deg) translate3d(${-c.x}px,${-c.y}px,0)`;
+  }
+  W.cam = (c, instant) => {
+    camNow = Object.assign({ x: 0, y: 0, s: 1, rx: 56, rz: 16, px: 0, py: 50 }, c); orbit = { rz: 0, rx: 0 };
+    if (instant) world.classList.add("nt");
+    applyCam();
+    if (instant) { void world.offsetWidth; world.classList.remove("nt"); }
+  };
+  // drag to look around
+  let drag = null;
+  vp.addEventListener("pointerdown", (e) => { drag = { x: e.clientX, y: e.clientY, rz: orbit.rz, rx: orbit.rx, moved: false }; try { vp.setPointerCapture(e.pointerId); } catch (err) {} });
+  vp.addEventListener("pointermove", (e) => {
+    if (!drag) return;
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    if (Math.abs(dx) + Math.abs(dy) > 5) drag.moved = true;
+    if (!drag.moved) return;
+    orbit.rz = drag.rz - dx * 0.25; orbit.rx = drag.rx - dy * 0.2;
+    world.classList.add("nt"); applyCam();
+  });
+  const endDrag = () => { if (!drag) return; if (drag.moved) lastDrag = Date.now(); drag = null; void world.offsetWidth; world.classList.remove("nt"); };
+  vp.addEventListener("pointerup", endDrag); vp.addEventListener("pointercancel", endDrag);
+
+  const tf = (b, p) => `translate3d(${p.x - b._w / 2}px,${p.y - b._d / 2}px,${p.z}px) scale3d(1,1,${b._g})`;
+  const place = (b) => { b.style.transform = tf(b, b._p); };
+
+  W.ground = (x, y, w, h) => { const g = el(world, "ground"); g.style.cssText += `width:${w}px;height:${h}px;transform:translate3d(${x}px,${y}px,0);`; return g; };
+  W.plate = (x, y, w, d, cls, html, parent) => { const e = el(parent || world, "plate " + (cls || ""), html || ""); e.style.cssText += `width:${w}px;height:${d}px;transform:translate3d(${x - w / 2}px,${y - d / 2}px,2px);`; return e; };
+  W.strip = (x1, y1, x2, y2, o) => {
+    o = o || {}; const len = Math.hypot(x2 - x1, y2 - y1), a = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI, w = o.w || 10;
+    const e = el(o.parent || world, "strip " + (o.cls || ""));
+    e.style.cssText += `width:${len}px;height:${w}px;transform:translate3d(${x1}px,${y1}px,${o.z || 4}px) rotateZ(${a}deg) translateY(${-w / 2}px);`;
+    return e;
+  };
+  W.grp = (x, y, z, cls, parent) => { const g = el(parent || world, "grp" + (cls ? " " + cls : "")); g.style.transform = `translate3d(${x || 0}px,${y || 0}px,${z || 0}px)`; return g; };
+  // A box: x,y is the centre of its footprint, z its base height; w along x, d along y, h upwards.
+  W.box = (o, parent) => {
+    const b = el(parent || world, "b" + (o.cls ? " " + o.cls : ""));
+    const w = o.w, d = o.d, h = o.h, c = o.c || "#6E52B5";
+    b._w = w; b._d = d; b._h = h; b._g = o.g == null ? 1 : o.g; b._p = { x: o.x || 0, y: o.y || 0, z: o.z || 0 };
+    const face = (fw, fh, t, bg, html) => { const f = el(b, "f", html || ""); f.style.cssText += `width:${fw}px;height:${fh}px;transform:${t};background:${bg};`; return f; };
+    b.top = face(w, d, `translate3d(0,0,${h}px)`, o.ct || shade(c, .25), o.top);
+    b.front = face(w, h, `translate3d(0,${d}px,${h}px) rotateX(-90deg)`, o.cf || c, o.front);
+    face(w, h, `translate3d(${w}px,0,${h}px) rotateZ(180deg) rotateX(-90deg)`, shade(c, -.3));
+    face(d, h, `translate3d(${w}px,${d}px,${h}px) rotateZ(-90deg) rotateX(-90deg)`, shade(c, -.2));
+    face(d, h, `translate3d(0,0,${h}px) rotateZ(90deg) rotateX(-90deg)`, shade(c, -.12));
+    place(b); return b;
+  };
+  W.bb = (o, parent) => { const e = el(parent || world, "bb" + (o.cls ? " " + o.cls : ""), `<div class="in">${o.html || ""}</div>`); e.style.setProperty("--p", `translate3d(${o.x || 0}px,${o.y || 0}px,${o.z || 0}px)`); e.in = e.firstChild; return e; };
+  W.show = (e, on) => { e.classList.toggle("hide", !on); };
+  W.grow = (b, g) => { b._g = Math.max(g, 0.001); place(b); };
+  W.put = (b, x, y, z) => { if (b._anim) { b._anim.cancel(); b._anim = null; } b._p = { x, y, z }; place(b); };
+  // Move a box through a list of [x,y,z] points. The last point is where it ends up.
+  W.fly = (b, pts, dur, animate, delay) => {
+    if (b._anim) { b._anim.cancel(); b._anim = null; }
+    const from = b._p, P = pts.map((p) => ({ x: p[0], y: p[1], z: p[2] }));
+    b._p = P[P.length - 1]; b.classList.add("nt"); place(b);
+    if (animate && b.animate) {
+      b._anim = b.animate([from].concat(P).map((p) => ({ transform: tf(b, p) })), { duration: T(dur), delay: T(delay || 0), easing: "ease-in-out", fill: "backwards" });
+      anims.push(b._anim);
+    }
+  };
+  W.later = (fn, ms) => { timers.push(setTimeout(fn, T(ms))); };
+  W.clear = () => { timers.splice(0).forEach(clearTimeout); };
+  W.dispose = () => { W.clear(); anims.splice(0).forEach((a) => { try { a.cancel(); } catch (e) {} }); };
+
+  // ready-made objects
+  W.person = (x, y, c, name, parent, z) => {
+    const g = W.grp(x, y, z || 0, "", parent);
+    W.box({ w: 32, d: 20, h: 54, c }, g);
+    W.box({ z: 56, w: 24, d: 20, h: 24, c: "#E3B08A" }, g);
+    if (name) g.lab = W.bb({ z: 96, html: `<span class="lab">${name}</span>` }, g);
+    return g;
+  };
+  W.phone = (x, y, o, parent) => {
+    o = o || {}; const w = o.w || 100, h = o.h || 166, d = o.d || 12;
+    const b = W.box({ x, y, z: o.z || 0, w, d, h, c: "#241C3B", front: `<div class="scr${o.big ? " big" : ""}"></div>` }, parent);
+    b.scr = b.front.firstChild; return b;
+  };
+  W.tower = (x, y, parent, z) => {
+    const g = W.grp(x, y, z || 0, "", parent);
+    W.box({ w: 40, d: 40, h: 8, c: "#B9B3CF" }, g);
+    W.box({ z: 8, w: 10, d: 10, h: 186, c: "#8E88A6" }, g);
+    W.box({ z: 120, w: 50, d: 6, h: 6, c: "#8E88A6" }, g);
+    W.box({ z: 156, w: 50, d: 6, h: 6, c: "#8E88A6" }, g);
+    W.box({ x: -25, z: 146, w: 10, d: 5, h: 34, c: "#D4CFE4" }, g);
+    W.box({ x: 25, z: 146, w: 10, d: 5, h: 34, c: "#D4CFE4" }, g);
+    W.bb({ z: 205, html: `<div class="rings"><i></i><i></i><i></i></div>` }, g);
+    return g;
+  };
+  W.servers = (x, y, label, parent, z) => {
+    const g = W.grp(x, y, z || 0, "", parent);
+    W.box({ w: 240, d: 110, h: 10, c: "#CFC4EC" }, g);
+    [-76, 0, 76].forEach((dx) => W.box({ x: dx, z: 10, w: 58, d: 52, h: 120, c: "#2B2347", front: `<div class="rack"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>` }, g));
+    if (label) g.lab = W.bb({ z: 146, html: `<span class="lab big">${label}</span>` }, g);
+    return g;
+  };
+  W.laptop = (x, y, o, parent) => {
+    o = o || {}; const g = W.grp(x, y, o.z || 0, "", parent);
+    W.box({ y: 30, w: 110, d: 70, h: 6, c: "#B9B3CF" }, g);
+    const s = W.box({ y: -6, z: 6, w: 110, d: 5, h: 72, c: "#3B3163", front: `<div class="scr" style="inset:5px"></div>` }, g);
+    g.scr = s.front.firstChild; return g;
+  };
+  W.router = (x, y, parent, z) => {
+    const g = W.grp(x, y, z || 0, "", parent);
+    W.box({ w: 64, d: 40, h: 12, c: "#EDEAF5" }, g);
+    W.box({ x: -22, z: 12, w: 4, d: 4, h: 36, c: "#3B3163" }, g); W.box({ x: 22, z: 12, w: 4, d: 4, h: 36, c: "#3B3163" }, g);
+    return g;
+  };
+  // A stack of labelled slabs: a database, a pile of files, layers of anything.
+  W.db = (x, y, labels, o, parent) => {
+    o = o || {}; const g = W.grp(x, y, o.z || 0, "", parent);
+    g.slabs = labels.map((t, k) => W.box({ z: k * 34, w: o.w || 130, d: o.d || 100, h: 28, c: o.c || "#C9761F", front: `<div class="ftxt" style="font-size:${o.fs || 18}px">${t}</div>` }, g));
+    return g;
+  };
+  // A signboard on a pole. Text goes on the front. pole: 0 puts the board on the ground.
+  W.board = (x, y, html, o, parent) => {
+    o = o || {}; const w = o.w || 230, h = o.h || 62, pole = o.pole == null ? 96 : o.pole, g = W.grp(x, y, o.z || 0, "", parent);
+    if (pole) W.box({ w: 10, d: 10, h: pole, c: "#8E88A6" }, g);
+    g.face = W.box({ z: pole, w, d: 12, h, c: o.c || "#4B2E83", front: `<div class="ftxt" style="font-size:${o.fs || 22}px">${html}</div>` }, g);
+    g.txt = g.face.front.firstChild; return g;
+  };
+  W.moveGrp = (g, x, y, z) => { g.style.transform = `translate3d(${x || 0}px,${y || 0}px,${z || 0}px)`; g._x = x || 0; g._y = y || 0; g._z = z || 0; };
+
+  // ---------- Python with the cover off: the OOP pieces ----------
+  // A CLASS is a cabinet: a name block on top, one drawer per method on its front.
+  //   o = { name: "class BankAccount", drawers: ["__init__", "deposit", "balance"], w, d, dh, c, z }
+  // Stack a child on its parent with z: parent.top. Methods are looked up from the child down.
+  //   g.at(m) -> [x, y, z] just in front of drawer m (for W.fly);  g.open(m, on);  g.mark(m, "hit" | "bad" | "ghost" | "warn" | "");
+  //   g.top -> height of the top of the name block;  g.dr[m] -> the drawer block;  g.head -> the name block;  g.reset()
+  W.cabinet = (x, y, o, parent) => {
+    const z0 = o.z || 0, g = W.grp(x, y, z0, "cab", parent);
+    g._x = x; g._y = y; g._z = z0;
+    const w = o.w || 250, d = o.d || 90, dh = o.dh || 38, gap = 8, list = o.drawers || [], n = list.length;
+    const bodyH = n ? n * (dh + gap) + gap : 16, c = o.c || "#036672", hh = o.hh || 48;
+    W.box({ w, d, h: bodyH, c: o.body || "#CFE9E6" }, g);
+    g.head = W.box({ z: bodyH, w: w + 12, d: d + 8, h: hh, c, front: `<div class="ftxt cabname" style="font-size:${o.fs || 21}px">${o.name}</div>` }, g);
+    g.top = z0 + bodyH + hh; g.dr = {}; g._dz = {}; g._shut = {};
+    const dd = 26, shut = d / 2 - dd / 2 + 10;
+    list.forEach((m, i) => {
+      const dz = bodyH - (i + 1) * (dh + gap);
+      const b = W.box({ y: shut, z: dz, w: w - 26, d: dd, h: dh, c: "#F7FCFB", cls: "drw", front: `<div class="ftxt dark mono" style="font-size:${o.dfs || 19}px">${m}</div>` }, g);
+      g.dr[m] = b; g._dz[m] = dz; g._shut[m] = shut;
+    });
+    g.at = (m) => [g._x, g._y + shut + dd / 2 + 26, g._z + (g._dz[m] == null ? bodyH : g._dz[m]) + dh / 2 - 12];
+    g.open = (m, on) => { if (g.dr[m]) W.put(g.dr[m], 0, g._shut[m] + (on ? 30 : 0), g._dz[m]); };
+    g.mark = (m, cls) => { const b = g.dr[m]; if (!b) return; ["hit", "bad", "ghost", "warn"].forEach((k) => b.classList.toggle(k, k === cls)); };
+    g.reset = () => list.forEach((m) => { g.open(m, false); g.mark(m, ""); });
+    return g;
+  };
+  // An OBJECT is a glass box you can see into, with one slot per attribute: name on the left, value on the right.
+  //   o = { title: "s", slots: [["owner", '"Ali"'], ["_balance", "10000"]], w, d, sh, kw, z }
+  //   g.set(key, html, cls) changes a value ("hit" flashes green, "bad" red);  g.showSlot(key, on) shows or hides one slot
+  //   g.at() -> [x, y, z] at the middle of the box front;  g.lab -> the title label
+  W.obj = (x, y, o, parent) => {
+    const z0 = o.z || 0, g = W.grp(x, y, z0, "obj", parent);
+    g._x = x; g._y = y; g._z = z0;
+    const slots = o.slots || [], n = Math.max(1, slots.length), sh = o.sh || 38, w = o.w || 320, d = o.d || 96, kw = o.kw || 0.5;
+    const h = o.h || n * (sh + 10) + 18;
+    W.box({ w: w + 20, d: d + 20, h: 8, c: "#9CCFC9" }, g);
+    W.box({ z: 8, w, d, h, c: "#0A8F8A", cls: "glass" }, g);
+    g.k = {}; g.v = {}; g._h = h + 8;
+    slots.forEach((s, i) => {
+      const z = 8 + h - (i + 1) * (sh + 10), kW = Math.round((w - 30) * kw), vW = w - 30 - kW;
+      g.k[s[0]] = W.box({ x: -w / 2 + 10 + kW / 2, y: d / 2 - 30, z, w: kW, d: 22, h: sh, c: "#036672", front: `<div class="ftxt mono" style="font-size:${o.kfs || 18}px">${s[0]}</div>` }, g);
+      g.v[s[0]] = W.box({ x: w / 2 - 10 - vW / 2, y: d / 2 - 30, z, w: vW, d: 22, h: sh, c: "#FFFFFF", cls: "val", front: `<div class="ftxt dark mono" style="font-size:${o.vfs || 19}px">${s[1]}</div>` }, g);
+    });
+    g.set = (key, html, cls) => { const b = g.v[key]; if (!b) return; b.front.firstChild.innerHTML = html; ["hit", "bad"].forEach((k) => b.classList.toggle(k, k === cls)); };
+    g.showSlot = (key, on) => { if (g.k[key]) { W.show(g.k[key], on); W.show(g.v[key], on); } };
+    g.at = () => [g._x, g._y + d / 2 + 30, g._z + 8 + h / 2];
+    if (o.title) g.lab = W.bb({ z: h + 24, html: `<span class="lab big mono">${o.title}</span>` }, g);
+    return g;
+  };
+  // A VARIABLE NAME is a tag on a post. It names an object through a string on the ground (W.arrow).
+  W.tag = (x, y, text, parent, o) => {
+    o = o || {}; const g = W.grp(x, y, 0, "", parent); g._x = x; g._y = y;
+    W.box({ w: 8, d: 8, h: o.post || 60, c: "#7FA9A5" }, g);
+    g.face = W.box({ z: o.post || 60, w: o.w || 80, d: 14, h: 46, c: o.c || "#C9761F", front: `<div class="ftxt mono" style="font-size:${o.fs || 26}px">${text}</div>` }, g);
+    return g;
+  };
+  // A string from (x1,y1) to (x2,y2) on the ground, with an arrowhead at the far end. a.to(x1, y1, x2, y2) re-points it (it swings there).
+  W.arrow = (x1, y1, x2, y2, o) => {
+    o = o || {}; const line = el(o.parent || world, "strip ref" + (o.cls ? " " + o.cls : "")), head = el(o.parent || world, "ahead" + (o.cls ? " " + o.cls : ""));
+    const wd = o.w || 8, z = o.z || 5;
+    const a = { line, head };
+    a.to = (ax, ay, bx, by) => {
+      const ang = Math.atan2(by - ay, bx - ax), len = Math.max(0, Math.hypot(bx - ax, by - ay) - 22);
+      line.style.width = len + "px"; line.style.height = wd + "px";
+      line.style.transform = `translate3d(${ax}px,${ay}px,${z}px) rotateZ(${ang * 180 / Math.PI}deg) translateY(${-wd / 2}px)`;
+      head.style.transform = `translate3d(${bx}px,${by}px,${z + 1}px) rotateZ(${ang * 180 / Math.PI}deg)`;
+      a.p = [ax, ay, bx, by];
+    };
+    a.to(x1, y1, x2, y2);
+    return a;
+  };
+  // A METHOD CALL is a glowing ball carrying the request. Move it with W.fly(ball, points, ms, fwd, delay).
+  //   ball.say(html) sets the label riding on it, e.g. "deposit(500)".
+  W.ball = (o) => {
+    o = o || {}; const b = W.box({ w: 30, d: 30, h: 30, c: o.c || "#F2B33D", cls: "ball nt hide" });
+    const lab = W.bb({ x: 15, y: 15, z: 40, html: "" }, b);
+    b.say = (html) => { lab.in.innerHTML = html ? `<span class="pk call">${html}</span>` : ""; };
+    if (o.label) b.say(o.label);
+    return b;
+  };
+  // A red burst with Python's exact error text, at a point in the world.
+  W.burst = (x, y, z, text, parent) => W.bb({ x, y, z, cls: "hide burst", html: `<span class="say bad err">${text}</span>` }, parent);
+  return W;
+}
+// Add lecture-only CSS from a lecture file.
+function css(text) { const s = document.createElement("style"); s.textContent = text; document.head.appendChild(s); }
+
+// ---------------- the code panel ----------------
+// A dark panel of Python drawn on top of the slide, with lines that light up as they run.
+//   const c = code(root, `class A:\n    pass`, { x: 64, y: 128, w: 520, fs: 18, title: "savings.py" });
+//   c.hl([3, 4])        light lines 3 and 4 (1-based); c.hl([]) clears that colour
+//   c.hl([5], "bad")    mark line 5 red; "good" marks green; "dim" greys lines out
+//   c.clear()           removes every mark;  c.line(5, "new text") replaces a line
+//   c.el is the panel element: W.show(c.el, on) hides or shows it
+// one pass, so a word inside a span this function just wrote is never coloured again
+const TOK = /(@\w+)|\b(class|def|return|if|elif|else|for|in|while|not|and|or|is|pass|raise|import|from|try|except|as|with|lambda|None|True|False|self|super)\b|\b(\d+(?:\.\d+)?)\b/g;
+function pyHTML(line) {
+  let h = esc(line), cm = "";
+  const ci = h.search(/#(?=(?:[^"']|"[^"]*"|'[^']*')*$)/);
+  if (ci >= 0) { cm = `<span class="cm">${h.slice(ci)}</span>`; h = h.slice(0, ci); }
+  const parts = h.split(/("[^"]*"|'[^']*')/);
+  h = parts.map((p, i) => (i % 2 ? `<span class="st">${p}</span>` : p.replace(TOK, (m, dec, kw, num) => `<span class="${dec ? "dec" : kw ? "kw" : "nm"}">${m}</span>`))).join("");
+  return h + cm;
+}
+function code(root, src, o) {
+  o = o || {};
+  const c = { el: el(root, "ov code" + (o.cls ? " " + o.cls : "")) };
+  c.el.style.cssText = `left:${o.x == null ? 64 : o.x}px;top:${o.y == null ? 128 : o.y}px;width:${o.w || 520}px;font-size:${o.fs || 18}px;` + (o.style || "");
+  if (o.title) el(c.el, "cttl", esc(o.title));
+  c.ln = src.replace(/\n$/, "").split("\n").map((t) => el(c.el, "ln", pyHTML(t) || " "));
+  c.hl = (nums, cls) => { cls = cls || "on"; c.ln.forEach((l, i) => l.classList.toggle(cls, (nums || []).includes(i + 1))); };
+  c.clear = () => c.ln.forEach((l) => l.classList.remove("on", "bad", "good", "dim"));
+  c.line = (n, t) => { if (c.ln[n - 1]) c.ln[n - 1].innerHTML = pyHTML(t) || " "; };
+  return c;
+}
+
+// ---------------- shared scene pieces ----------------
+const S = {};
+const VP = { x: 0, y: 112, w: 1280, h: 484 };
+
+// A sender, a tower, servers, a tower and a receiver. Used by the trace and by the solution.
+function route(W, cfg) {
+  W.ground(-280, -340, 2060, 660);
+  const R = {};
+  W.plate(40, 70, 340, 240, "city", cfg.cityA);
+  W.plate(1460, 70, 340, 240, "city", cfg.cityB);
+  W.plate(750, 60, 520, 60, "small", "The internet: cables and routers");
+  R.pa = W.person(-30, 70, "#4B2E83", cfg.nameA);
+  R.phA = W.phone(90, 80);
+  R.twA = W.tower(330, -110);
+  R.c1 = W.strip(330, -110, 520, -20); R.c2 = W.strip(520, -20, 750, -50);
+  R.c3 = W.strip(750, -50, 980, -20); R.c4 = W.strip(980, -20, 1170, -110);
+  W.box({ x: 520, y: -20, w: 46, d: 32, h: 16, c: "#EDEAF5" }); W.box({ x: 980, y: -20, w: 46, d: 32, h: 16, c: "#EDEAF5" });
+  R.srv = W.servers(750, -130, cfg.server);
+  R.twB = W.tower(1170, -110);
+  R.phB = W.phone(1410, 80);
+  R.pb = W.person(1530, 70, "#AC3B2A", cfg.nameB);
+  R.pk = W.box({ x: 90, y: 80, z: 168, w: 36, d: 26, h: 22, c: "#C9761F", cls: "nt hide" });
+  R.pkLab = W.bb({ x: 18, y: 13, z: 30, html: "" }, R.pk);
+  R.back = W.box({ x: 1410, y: 80, z: 168, w: 30, d: 22, h: 18, c: "#1976D2", cls: "nt hide" });
+  R.backLab = W.bb({ x: 15, y: 11, z: 26, html: `<span class="pk tick">✓✓</span>` }, R.back);
+  R.note = W.bb({ x: 965, y: -130, z: 120, cls: "hide", html: "" });
+  R.P = {
+    a: [90, 80, 184], ta: [330, -110, 206], taBase: [330, -110, 18], r1: [520, -20, 20], sFront: [750, -50, 20], sTop: [750, -130, 190],
+    r2: [980, -20, 20], tbBase: [1170, -110, 18], tb: [1170, -110, 206], b: [1410, 80, 184], bIn: [1410, 80, 130], aIn: [90, 80, 130]
+  };
+  R.cables = (on) => [R.c1, R.c2, R.c3, R.c4].forEach((c, i) => c.classList.toggle("on", on.includes(i + 1)));
+  R.cams = { all: { x: 750, y: -10, s: .6, py: 70 }, a: { x: 60, y: 60, s: 1.45, py: 110 }, air: { x: 210, y: -20, s: 1.15, py: 120 }, net: { x: 560, y: -50, s: .98, py: 100 },
+    srv: { x: 760, y: -90, s: 1.2, py: 120 }, net2: { x: 960, y: -50, s: .98, py: 100 }, b: { x: 1440, y: 60, s: 1.45, py: 110 } };
+  return R;
+}
+
+// ---------------- deck engine ----------------
+function run(DECK) {
+  let si = 0, step = 0, scene = null, slideEl = null, capEl = null;
+  function build(i) {
+    const sl = DECK.slides[i];
+    if (scene && scene.W) scene.W.dispose();
+    if (slideEl) slideEl.remove();
+    slideEl = el(stage, "slide " + (sl.type || ""));
+    capEl = null;
+    if (sl.type !== "cover") { el(slideEl, "kicker", esc(sl.k)); el(slideEl, "ttl", sl.t); }
+    scene = S[sl.scene](slideEl, sl);
+    if (!scene.nocap) capEl = el(slideEl, "cap empty", `<span class="txt"></span><span class="tags"></span>`);
+    el(slideEl, "foot", esc(DECK.foot)); el(slideEl, "ctr", "");
+  }
+  function render(fwd) {
+    const sl = DECK.slides[si], r = scene.go(step, fwd) || {};
+    if (capEl) {
+      capEl.className = "cap" + (r.cap ? "" : " empty") + (r.ck ? " " + r.ck : "");
+      capEl.querySelector(".txt").textContent = r.cap || "";
+      capEl.querySelector(".tags").innerHTML = tagsHTML(r.tags);
+    }
+    slideEl.querySelector(".ctr").textContent = (si + 1) + " / " + DECK.slides.length + (scene.n > 1 ? "  ·  step " + (step + 1) + "/" + scene.n : "");
+    document.getElementById("pos").textContent = `Slide ${si + 1} of ${DECK.slides.length}${scene.n > 1 ? `  ·  step ${step + 1} of ${scene.n}` : ""}`;
+    document.getElementById("jump").value = String(si);
+    document.getElementById("prev").disabled = si === 0 && step === 0;
+    document.getElementById("next").disabled = si === DECK.slides.length - 1 && step === scene.n - 1;
+    try { history.replaceState(null, "", "#s" + (si + 1)); } catch (e) {}
+  }
+  function goSlide(i, atEnd) {
+    if (i < 0 || i >= DECK.slides.length) return;
+    si = i; build(i); step = atEnd ? scene.n - 1 : 0;
+    render(false);
+  }
+  function next() { if (step < scene.n - 1) { step++; render(true); } else goSlide(si + 1, false); }
+  function prev() { if (step > 0) { step--; render(false); } else goSlide(si - 1, true); }
+
+  const jump = document.getElementById("jump");
+  DECK.slides.forEach((s, k) => { const o = document.createElement("option"); o.value = String(k); o.textContent = (k + 1) + ". " + s.t; jump.appendChild(o); });
+  jump.addEventListener("change", () => goSlide(+jump.value, false));
+  document.getElementById("next").addEventListener("click", next);
+  document.getElementById("prev").addEventListener("click", prev);
+  document.getElementById("again").addEventListener("click", () => goSlide(si, false));
+  document.getElementById("full").addEventListener("click", () => { const r = frame.requestFullscreen && frame.requestFullscreen(); if (r && r.catch) r.catch(() => {}); });
+  // the OOP decks are for students: no speaker notes, no notes button
+  document.addEventListener("keydown", (e) => {
+    if (e.target && (e.target.tagName === "SELECT" || e.target.tagName === "INPUT")) return;
+    if (["ArrowRight", "PageDown", " ", "Enter", "ArrowDown"].includes(e.key)) { e.preventDefault(); next(); }
+    else if (["ArrowLeft", "PageUp", "Backspace", "ArrowUp"].includes(e.key)) { e.preventDefault(); prev(); }
+    else if (e.key === "f" || e.key === "F") document.getElementById("full").click();
+    else if (e.key === "Home") goSlide(0, false);
+    else if (e.key === "End") goSlide(DECK.slides.length - 1, false);
+  });
+  stage.addEventListener("click", () => { if (document.fullscreenElement === frame && Date.now() - lastDrag > 350) next(); });
+  function fit() {
+    const full = document.fullscreenElement === frame;
+    const w = full ? window.innerWidth : frame.clientWidth;
+    // outside full screen, keep the slide and the button row inside the window together
+    // (a phone held sideways is wide but short, so the width alone would push the buttons off screen)
+    const ctl = document.querySelector(".controls");
+    const room = window.innerHeight - (ctl ? ctl.offsetHeight : 0) - 24;
+    const h = full ? window.innerHeight : Math.min(w * 720 / 1280, Math.max(room, 200));
+    const s = Math.min(w / 1280, h / 720);
+    stage.style.transform = `scale(${s})`;
+    stage.style.left = (w - 1280 * s) / 2 + "px";
+    if (full) stage.style.top = (h - 720 * s) / 2 + "px";
+    else { stage.style.top = "0px"; frame.style.height = 720 * s + "px"; }
+  }
+  window.addEventListener("resize", fit);
+  document.addEventListener("fullscreenchange", fit);
+  fit();
+  let start = 0;
+  try { const m = /^#s(\d+)$/.exec(location.hash); if (m) start = Math.min(DECK.slides.length - 1, Math.max(0, +m[1] - 1)); } catch (e) {}
+  goSlide(start, false);
+  window.__deck = { next, prev, goSlide, get pos() { return [si, step, scene.n]; }, count: DECK.slides.length };
+}
+
+return { World, S, VP, run, el, esc, shade, tagsHTML, T, css, code, pyHTML };
+})();
+</script>
+<script>
+// TITLE: OOP · Week 7 · Lecture 2 · When inheritance is the wrong answer (3D)
+(() => {
+"use strict";
+const { World, S, VP, el, esc, code, css } = window.OOP3D;
+
+css(`
+.grp.snap { transition: none !important; }
+.burst .say.err { white-space: nowrap; }
+.code .ln.gone { visibility: hidden; }
+.rod.on > .f { background: #F2B33D !important; }
+.lst { margin: 4px 0 14px; display: flex; flex-direction: column; gap: 6px; font: 600 21px var(--f-body); }
+.lst b { font: 700 15px var(--f-body); letter-spacing: .12em; }
+.lst span { padding: 6px 12px; border-radius: 8px; background: #F3FAF9; border-left: 6px solid var(--vio); }
+.lst.good b { color: var(--green); } .lst.good span { border-color: var(--green); background: var(--green-t); }
+.lst.bad b { color: var(--red); } .lst.bad span { border-color: var(--red); background: var(--red-t); }
+.lst span.hot { box-shadow: 0 0 0 3px var(--red); }
+.todo { margin: 6px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.todo li { padding: 7px 12px; border-radius: 8px; background: #F3FAF9; border-left: 6px solid var(--vio); font-size: 21px; }
+.todo li.hot { background: var(--amber-t); border-color: var(--amber); }
+.todo code { font: 700 20px var(--f-mono); color: var(--vio-d); }
+.card .sec { font: 700 14px var(--f-body); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin: 12px 0 4px; }
+.card .sec:first-child { margin-top: 0; }
+.pcard { font-size: 18px; line-height: 1.35; }
+.pcard ol { margin: 4px 0 0; padding-left: 24px; } .pcard li { margin: 3px 0; }
+.pcard .hint { margin-top: 8px; padding: 8px 12px; border-radius: 8px; background: var(--amber-t); font-size: 17px; }
+`);
+
+// ---------- small helpers ----------
+// put a group at a place: glide there when the teacher clicked Next, jump there otherwise
+function place(W, g, x, y, z, fwd) {
+  if (!fwd) g.classList.add("snap");
+  W.moveGrp(g, x, y, z);
+  if (!fwd) { void g.offsetWidth; g.classList.remove("snap"); }
+}
+// a cabinet whose drawers sit in several columns (a class with many methods)
+function gridCab(W, x, y, o, parent) {
+  const z0 = o.z || 0, g = W.grp(x, y, z0, "cab", parent);
+  g._x = x; g._y = y; g._z = z0;
+  const list = o.drawers, cols = o.cols || 3, rows = Math.ceil(list.length / cols), cw = o.cw || 150, dh = o.dh || 38, gap = 8;
+  const w = cols * cw + 16, d = o.d || 90, bodyH = rows * (dh + gap) + gap, hh = o.hh || 48;
+  W.box({ w, d, h: bodyH, c: "#CFE9E6" }, g);
+  g.head = W.box({ z: bodyH, w: w + 12, d: d + 8, h: hh, c: o.c || "#036672", front: `<div class="ftxt cabname" style="font-size:${o.fs || 21}px">${o.name}</div>` }, g);
+  g.top = z0 + bodyH + hh; g.dr = {}; g._pos = {};
+  const dd = 26, shut = d / 2 - dd / 2 + 10;
+  list.forEach((m, i) => {
+    const col = Math.floor(i / rows), row = i % rows;
+    const dx = -w / 2 + 8 + cw / 2 + col * cw, dz = bodyH - (row + 1) * (dh + gap);
+    g.dr[m] = W.box({ x: dx, y: shut, z: dz, w: cw - 10, d: dd, h: dh, c: "#F7FCFB", cls: "drw", front: `<div class="ftxt dark mono" style="font-size:${o.dfs || 21}px">${m}</div>` }, g);
+    g._pos[m] = [dx, dz];
+  });
+  g.at = (m) => { const p = g._pos[m] || [0, bodyH]; return [g._x + p[0], g._y + shut + dd / 2 + 26, g._z + p[1] + dh / 2 - 12]; };
+  g.open = (m, on) => { const p = g._pos[m]; if (p) W.put(g.dr[m], p[0], shut + (on ? 30 : 0), p[1]); };
+  g.mark = (m, cls) => { const b = g.dr[m]; if (!b) return; ["hit", "bad", "ghost", "warn"].forEach((k) => b.classList.toggle(k, k === cls)); };
+  g.reset = () => list.forEach((m) => { g.open(m, false); g.mark(m, ""); });
+  return g;
+}
+const lab = (t, cls, fs) => `<span class="lab big ${cls || ""}"${fs ? ` style="font-size:${fs}px"` : ""}>${t}</span>`;
+const say = (t, sub, cls, w, fs) => `<span class="say ${cls || ""}" style="width:${w || 300}px;font-size:${fs || 21}px">${t}${sub ? `<i>${sub}</i>` : ""}</span>`;
+
+// ---------- Cover: a child hovering over its parent, not sure it belongs there ----------
+S.cover = (root, sl) => {
+  el(root, "cv-bg");
+  el(root, "cv-text", `<div class="ck">${esc(sl.k)}</div><div class="ct">${sl.t}</div><div class="cs">${sl.sub}</div><div class="cb">${sl.badge}</div>`);
+  const W = World(root, { x: 560, y: 0, w: 720, h: 720 }, "clear");
+  const g = W.grp(0, 0, 0, "sway");
+  W.plate(0, 0, 600, 600, "disc", "", g);
+  const p = W.cabinet(0, 0, { name: "Rectangle", drawers: ["set_width", "set_height", "area"], w: 250, dfs: 20 }, g);
+  W.cabinet(0, 0, { name: "Square", drawers: ["set_width", "set_height"], w: 250, dfs: 20, z: p.top + 90, c: "#0A8F8A" }, g);
+  W.bb({ x: 0, y: 70, z: p.top + 20, html: `<span class="lab bad" style="font-size:54px;padding:2px 22px;border-width:4px">?</span>` }, g);
+  W.cam({ rx: 58, rz: 0, s: .9, py: 210 }, true);
+  return { n: 1, W, nocap: true, go() { return {}; } };
+};
+
+// ---------- The temptation: three gates before the brackets ----------
+S.gates = (root) => {
+  const W = World(root, VP);
+  W.ground(-720, -260, 2160, 520);
+  const GX = [0, 340, 680];
+  const Q = [
+    "Is the sentence true in English, always, not sometimes?",
+    "Can the child stand in for the parent anywhere, without surprising anyone?",
+    "Is the relationship real, or am I only sharing code?"
+  ];
+  const gates = GX.map((x, i) => {
+    const g = W.grp(x, 0, 0);
+    W.box({ y: -92, w: 26, d: 22, h: 190, c: "#5B7275" }, g);
+    W.box({ y: 92, w: 26, d: 22, h: 190, c: "#5B7275" }, g);
+    g.beam = W.box({ z: 190, w: 70, d: 236, h: 56, c: "#036672", front: `<div class="ftxt" style="font-size:36px">${i + 1}</div>`, top: `<div class="ftxt" style="font-size:44px">${i + 1}</div>` }, g);
+    g.red = W.box({ z: 190, w: 70, d: 236, h: 56, c: "#AC3B2A", cls: "hide", front: `<div class="ftxt" style="font-size:36px">${i + 1}</div>`, top: `<div class="ftxt" style="font-size:44px">${i + 1}</div>` }, g);
+    g.short = W.bb({ x, y: 0, z: 270, html: lab(`Test ${i + 1}`, "", 36) });
+    g.q = el(root, "ov card", `<h4>Test ${i + 1}</h4><div style="font:600 26px/1.3 var(--f-body)">${Q[i]}</div>`);
+    g.q.style.cssText = "left:40px;top:130px;width:400px;";
+    return g;
+  });
+  const child = W.cabinet(0, 0, { name: "Child", drawers: [], w: 190, hh: 80, c: "#0A8F8A", fs: 30 });
+  const parent = W.cabinet(1020, 0, { name: "Parent", drawers: [], w: 220, hh: 80, fs: 30 });
+  const tChild = W.bb({ x: 0, y: 0, z: 120, html: lab("every duplicated line", "warn", 34) }, child);
+  const hot = W.bb({ x: 340, y: 190, z: 0, cls: "hide", html: lab("Test 2: the one almost nobody applies", "bad", 34) });
+  const caps = [
+    "You have just learned a tool that removes duplicated code. For the next two weeks, every duplicated line will look like a reason to inherit.",
+    "Three tests. A class must pass all three before you write the brackets.",
+    "Test 1. Is the sentence true in English, always, not sometimes?",
+    "Test 2. Can the child stand in for the parent anywhere, without surprising anyone?",
+    "Test 3. Is the relationship real, or am I only sharing code?",
+    "Test 2 is the one almost nobody applies, and the one that causes the worst damage."
+  ];
+  const where = [-340, -340, 110, 450, 790, 790];
+  return { n: 6, W, go(step, fwd) {
+    W.clear();
+    gates.forEach((g, i) => {
+      W.show(g, step >= 1);
+      W.show(g.short, (step === 1) || (step === 5 && i !== 1));
+      W.show(g.q, step === i + 2);
+      g.short.classList.toggle("dim", false);
+      W.show(g.beam, !(step === 5 && i === 1)); W.show(g.red, step === 5 && i === 1);
+      g.classList.toggle("dim", step >= 2 && step <= 4 && step !== i + 2);
+    });
+    W.show(hot, step === 5);
+    W.show(tChild, step === 0);
+    place(W, child, where[step], 0, 0, fwd);
+    child._x = where[step];
+    if (step === 0 || step === 1 || step === 5) W.cam({ x: 340, y: 0, s: .68, rz: 20, rx: 58, py: 90 });
+    else W.cam({ x: GX[step - 2] + 60, y: 0, s: .95, rz: 20, rx: 58, px: 220, py: 150 });
+    return { cap: caps[step], ck: step === 5 ? "warn" : "" };
+  } };
+};
+
+// ---------- Test 1: always, not sometimes ----------
+S.test1 = (root) => {
+  const W = World(root, VP);
+  W.ground(-420, -260, 1100, 560);
+  const bird = W.cabinet(0, 0, { name: "Bird", drawers: ["fly"], w: 500, dfs: 24, fs: 24 });
+  const peng = W.cabinet(128, 0, { name: "Penguin", drawers: [], w: 240, hh: 56, z: bird.top, fs: 23, c: "#0A8F8A" });
+  const flyb = W.cabinet(-128, 0, { name: "FlyingBird", drawers: ["fly"], w: 240, dfs: 24, z: bird.top, fs: 23, c: "#0A8F8A" });
+  const mover = W.box({ x: 0, y: bird._shut.fly, z: bird._dz.fly, w: 214, d: 26, h: 38, c: "#F7FCFB", cls: "drw nt hide", front: `<div class="ftxt dark mono" style="font-size:24px">fly</div>` });
+  const p = W.obj(430, 110, { title: "p", slots: [], w: 140, h: 56 });
+  const ball = W.ball();
+  const no = W.bb({ x: 60, y: 190, z: 0, cls: "hide", html: lab("Penguin: cannot fly", "bad", 26) });
+  const empty = W.bb({ x: 60, y: 190, z: 0, cls: "hide", html: lab("Bird no longer promises fly()", "good", 24) });
+  const promise = W.bb({ x: -360, y: 40, z: 40, cls: "hide", html: say("Bird promises fly()", "to every child", "warn", 230, 22) });
+  const ok1 = W.bb({ x: -128, y: 0, z: 250, cls: "hide", html: lab("can fly()", "good", 24) });
+  const ok2 = W.bb({ x: 128, y: 0, z: 230, cls: "hide", html: lab("no fly() to refuse", "good", 24) });
+  const card = el(root, "ov card", `<div class="lst good"><b>HOLDS ALWAYS</b><span>A SavingsAccount is a BankAccount</span><span>A Rickshaw is a Vehicle</span><span>A Manager is an Employee</span></div>
+    <div class="lst bad"><b>HOLDS ONLY SOMETIMES</b><span class="hot">A Penguin is a Bird, but it cannot fly</span><span>An Intern is an Employee, but has no salary</span><span>A FreeAccount is an Account, but cannot withdraw</span></div>`);
+  card.style.cssText = "left:40px;top:124px;width:540px;padding:14px 20px;";
+  const bad = card.querySelector(".lst.bad");
+  const caps = [
+    "The sentence must hold for every single object of the child class, with no exceptions you have to explain away.",
+    "Holds always: a SavingsAccount is a BankAccount. A Rickshaw is a Vehicle. A Manager is an Employee.",
+    "Holds only sometimes: a Penguin is a Bird, but it cannot fly. An Intern has no salary. A FreeAccount cannot withdraw.",
+    "p.fly(): Python finds fly in Bird, and the penguin has to refuse it. When the child has to refuse something the parent promised, the sentence was not really true.",
+    "The parent promised more than this child can deliver.",
+    "The fix is usually to move the promise down: Bird should not promise fly(). FlyingBird can.",
+    "When a child cannot keep a promise, the promise was made at the wrong level of the hierarchy."
+  ];
+  return { n: 7, W, go(step, fwd) {
+    W.clear(); bird.reset(); flyb.reset();
+    const cards = step === 1 || step === 2;
+    W.show(card, cards); bad.style.display = step === 2 ? "" : "none";
+    const fixed = step >= 5;
+    W.show(flyb, fixed); W.show(bird.dr.fly, !fixed); W.show(flyb.dr.fly, fixed); W.show(mover, false);
+    W.show(no, step === 3); W.show(promise, step === 4);
+    W.show(ok1, step === 6); W.show(ok2, step === 6); W.show(empty, step >= 5);
+    W.show(ball, step === 3);
+    if (step === 3) {
+      ball.say("p.fly()");
+      W.put(ball, 430, 330, 90);
+      W.fly(ball, [p.at(), [128, 110, peng.top + 30], peng.at("x"), bird.at("fly"), [-160, bird.at("fly")[1], bird.at("fly")[2]]], 3800, fwd, 200);
+      const d = () => { bird.open("fly", true); bird.mark("fly", "bad"); W.show(no, true); };
+      if (fwd) { W.show(no, false); W.later(d, 3300); } else d();
+    }
+    if (step === 4) bird.mark("fly", "warn");
+    if (step === 5 && fwd) {
+      W.show(flyb.dr.fly, false); W.show(mover, true);
+      W.put(mover, 0, bird._shut.fly, bird._dz.fly);
+      W.fly(mover, [[-60, 140, 140], [-128, bird._shut.fly, bird.top + flyb._dz.fly]], 1600, true, 600);
+      W.later(() => { W.show(mover, false); W.show(flyb.dr.fly, true); flyb.mark("fly", "hit"); }, 2300);
+    } else if (fixed) flyb.mark("fly", "hit");
+    W.cam(cards ? { x: 60, y: 30, s: .9, rz: 10, px: 320, py: 90 } : { x: 40, y: 30, s: 1.05, rz: 10, py: 90 });
+    return { cap: caps[step], ck: step === 1 || step >= 5 ? "good" : step >= 2 ? "bad" : "" };
+  } };
+};
+
+// ---------- Test 2: the square and the rectangle ----------
+const SHAPES = `class Rectangle:
+    def __init__(self, w, h):
+        self._width = w
+        self._height = h
+    def set_width(self, w):
+        self._width = w
+    def set_height(self, h):
+        self._height = h
+    def area(self):
+        return self._width * self._height
+class Square(Rectangle):
+    def __init__(self, side):
+        super().__init__(side, side)
+    def set_width(self, w):
+        self._width = w
+        self._height = w    # keep it square
+    def set_height(self, h):
+        self._width = h
+        self._height = h`;
+const STRETCH = `def stretch(rect):
+    rect.set_width(10)
+    rect.set_height(4)
+    return rect.area()
+stretch(Rectangle(2, 3))
+# 40
+stretch(Square(2))
+# 16`;
+S.test2 = (root) => {
+  const W = World(root, VP);
+  W.ground(-360, -260, 1100, 560);
+  const c = code(root, SHAPES, { x: 40, y: 122, w: 440, fs: 15, title: "shapes.py" });
+  const k = code(root, STRETCH, { x: 496, y: 122, w: 290, fs: 15, title: "the caller" });
+  const O = { w: 270, kw: .55, kfs: 22, vfs: 26 };
+  const rect = W.obj(0, 0, Object.assign({ title: "Rectangle(2, 3)", slots: [["_width", "2"], ["_height", "3"]] }, O));
+  const sq = W.obj(400, 0, Object.assign({ title: "Square(2)", slots: [["_width", "2"], ["_height", "2"]] }, O));
+  // the link inside a square: one rod that turns both slots together
+  const link = W.grp(0, 0, 0, "", sq);
+  const zA = 8 + 114 - 48 + 19, zB = 8 + 114 - 96 + 19;
+  const rods = [
+    W.box({ x: 160, y: 18, z: zB - 6, w: 14, d: 14, h: zA - zB + 12, c: "#C9761F", cls: "rod" }, link),
+    W.box({ x: 145, y: 18, z: zA - 6, w: 44, d: 12, h: 12, c: "#C9761F", cls: "rod" }, link),
+    W.box({ x: 145, y: 18, z: zB - 6, w: 44, d: 12, h: 12, c: "#C9761F", cls: "rod" }, link)
+  ];
+  const linkLab = W.bb({ x: 160, y: 120, z: 0, html: lab("linked", "warn", 24) }, sq);
+  const aR = W.bb({ x: 0, y: 0, z: 200, cls: "hide", html: lab("area() = 40", "good", 30) });
+  const aS = W.bb({ x: 400, y: 0, z: 200, cls: "hide", html: lab("area() = 16", "bad", 30) });
+  const geo = W.bb({ x: 200, y: 0, z: 60, html: say("In geometry", "a square is certainly a rectangle", "good", 330, 26) });
+  const promise = W.bb({ x: 340, y: 0, z: 300, cls: "hide", html: say("Rectangle promised: width and height can be set independently.", "Square cannot keep that promise.", "warn", 400, 22) });
+  const ball = W.ball();
+  const steps = [
+    { cl: [11], kl: [], cap: "In geometry a square is certainly a rectangle. Watch what happens in code." },
+    { cl: [2, 3, 4], kl: [5], cap: "stretch(Rectangle(2, 3)): a rectangle with two separate slots, _width 2 and _height 3." },
+    { cl: [5, 6], kl: [2], cap: "rect.set_width(10) changes _width only. _height stays 3." },
+    { cl: [7, 8, 9, 10], kl: [3, 4, 6], cap: "rect.set_height(4) changes _height only. 10 × 4 = 40. stretch was written for rectangles and is correct.", ck: "good" },
+    { cl: [12, 13, 2, 3, 4], kl: [7], cap: "stretch(Square(2)): Square's __init__ hands 2 up to Rectangle's, twice. Square keeps its two slots linked." },
+    { cl: [14, 15, 16], kl: [2], cap: "rect.set_width(10) finds Square's own set_width. To keep it square, both slots turn to 10." },
+    { cl: [17, 18, 19, 9, 10], kl: [3, 4, 8], cap: "rect.set_height(4) turns both to 4. Area 16, not 40. Hand stretch a Square and it silently returns the wrong answer.", ck: "bad" },
+    { cl: [11], kl: [], cap: "Every line of Square is sensible on its own. The fault is the inheritance itself.", ck: "warn" }
+  ];
+  const R = [["2", "3"], ["2", "3"], ["10", "3"], ["10", "4"]];
+  const Q = [["2", "2"], ["10", "10"], ["4", "4"]];
+  return { n: steps.length, W, go(step, fwd) {
+    W.clear(); c.clear(); k.clear();
+    const st = steps[step];
+    c.hl(st.cl); k.hl(st.kl);
+    if (step === 7) c.hl([11], "bad");
+    W.show(geo, step === 0);
+    W.show(rect, step >= 1); W.show(sq, step >= 4);
+    rect.classList.toggle("dim", step >= 4 && step <= 6);
+    const r = R[Math.min(step, 3)];
+    rect.set("_width", r[0], step === 2 ? "hit" : ""); rect.set("_height", r[1], step === 3 ? "hit" : "");
+    const q = Q[Math.max(0, Math.min(step - 4, 2))];
+    const flash = step === 5 || step === 6 ? (step === 6 ? "bad" : "hit") : "";
+    sq.set("_width", q[0], flash); sq.set("_height", q[1], flash);
+    rods.forEach((b) => b.classList.toggle("on", step === 5 || step === 6));
+    W.show(aR, step === 3 || step === 7); W.show(aS, step >= 6);
+    W.show(promise, step === 7);
+    W.show(ball, step === 2 || step === 3 || step === 5 || step === 6);
+    if ([2, 3, 5, 6].includes(step)) {
+      const target = step < 4 ? rect : sq, set = step === 2 || step === 5 ? "_width" : "_height";
+      ball.say(step === 2 || step === 5 ? "set_width(10)" : "set_height(4)");
+      W.put(ball, target._x - 120, target._y + 300, 40);
+      W.fly(ball, [target.at(), [target._x - 30, target._y + 175, 10]], 1600, fwd, 200);
+      if (fwd) {
+        // the values change only when the call arrives
+        const before = step === 2 ? ["2", "3"] : step === 3 ? ["10", "3"] : step === 5 ? ["2", "2"] : ["10", "10"];
+        target.set("_width", before[0]); target.set("_height", before[1]);
+        if (step === 3) W.show(aR, false); if (step === 6) W.show(aS, false);
+        rods.forEach((b) => b.classList.remove("on"));
+        W.later(() => {
+          if (step < 4) target.set(set, step === 2 ? "10" : "4", "hit");
+          else { const v = step === 5 ? "10" : "4"; target.set("_width", v, flash); target.set("_height", v, flash); rods.forEach((b) => b.classList.add("on")); }
+          if (step === 3) W.show(aR, true); if (step === 6) W.show(aS, true);
+        }, 1700);
+      }
+    }
+    W.cam({ x: 200, y: 40, s: .85, rz: 0, rx: 52, px: 230, py: 185 });
+    return { cap: st.cap, ck: st.ck || "" };
+  } };
+};
+
+// ---------- Test 3: sharing code is not a relationship ----------
+function holder(W, x, y, outer, parent) {
+  const g = W.grp(x, y, 0, "", parent);
+  W.box({ w: 250, d: 150, h: 8, c: "#9CCFC9" }, g);
+  W.box({ z: 8, w: 230, d: 130, h: 130, c: "#0A8F8A", cls: "glass" }, g);
+  W.box({ y: 10, z: 8, w: 150, d: 50, h: 60, c: "#C9761F", front: `<div class="ftxt mono" style="font-size:22px">Header</div>` }, g);
+  g.lab = W.bb({ z: 170, html: `<span class="lab big mono" style="font-size:26px">${outer}</span>` }, g);
+  return g;
+}
+S.test3 = (root) => {
+  const W = World(root, VP);
+  W.ground(-420, -280, 1200, 600);
+  const wrong = code(root, `class Receipt(Invoice):
+    pass
+# only because both need
+# print_header()`, { x: 40, y: 122, w: 470, fs: 18, title: "WRONG", style: "border:3px solid #AC3B2A;" });
+  const right = code(root, `class Header:
+    def render(self): ...
+class Invoice:
+    def __init__(self):
+        self.header = Header()`, { x: 40, y: 298, w: 470, fs: 18, title: "RIGHT", style: "border:3px solid #1B7F5A;" });
+  // WRONG: a receipt stacked on an invoice
+  const wG = W.grp(0, 0, 0);
+  const inv = W.cabinet(0, 0, { name: "Invoice", drawers: ["print_header", "..."], w: 300, dfs: 22, fs: 24 }, wG);
+  const rec = W.cabinet(0, 0, { name: "Receipt", drawers: [], w: 240, hh: 56, z: inv.top, fs: 24, c: "#0A8F8A" }, wG);
+  const notKind = W.bb({ x: 0, y: 40, z: inv.top + 100, cls: "hide", html: lab("A Receipt is an Invoice?", "bad", 28) }, wG);
+  const ball = W.ball();
+  // RIGHT: a shared job in its own class, held by both
+  const rG = W.grp(0, 0, 0, "hide");
+  holder(W, -150, 0, "Invoice", rG);
+  holder(W, 180, 0, "Receipt", rG);
+  const uses = el(root, "ov card", `<b>Inheritance</b> is for what something IS.<br><b>Composition</b> is for what something HAS or USES.<br>Sharing a method is a "uses".`);
+  uses.style.cssText = "left:40px;top:494px;width:470px;padding:10px 18px;font-size:20px;line-height:1.3;";
+  // warning sign 1: a deep tower
+  const tower = W.grp(0, 0, 0, "hide");
+  let zt = 0;
+  ["A", "B(A)", "C(B)", "D(C)", "E(D)"].forEach((n, i) => { const cb = W.cabinet(0, 0, { name: "class " + n, drawers: [], w: 250, hh: 52, z: zt, fs: 25, c: i ? "#0A8F8A" : "#036672" }, tower); zt = cb.top; });
+  W.bb({ x: 230, y: 0, z: 200, html: lab("5 levels deep", "warn", 28) }, tower);
+  // warning sign 2: a parent that keeps growing for one child
+  const fat = W.grp(0, 0, 0, "hide");
+  const par = W.cabinet(0, 0, { name: "class Parent", drawers: ["used by all", "used by B only", "used by B only", "used by B only"], w: 400, dfs: 21, fs: 22 }, fat);
+  W.cabinet(-105, 0, { name: "A(Parent)", drawers: [], w: 180, hh: 52, z: par.top, fs: 21, c: "#0A8F8A" }, fat);
+  W.cabinet(105, 0, { name: "B(Parent)", drawers: [], w: 180, hh: 52, z: par.top, fs: 21, c: "#0A8F8A" }, fat);
+  fat.querySelectorAll(".drw").forEach((b) => { if (b.textContent === "used by B only") b.classList.add("warn"); });
+  const signs = el(root, "ov card", `<h4>Two more warning signs</h4><ol class="todo"><li>A hierarchy more than two or three levels deep: nobody can hold it in their head</li><li>A parent that keeps gaining methods only one child ever uses</li></ol>`);
+  signs.style.cssText = "left:40px;top:124px;width:520px;";
+  const items = signs.querySelectorAll("li");
+  const caps = [
+    "The most common bad reason to inherit: \"they both need this method.\"",
+    "WRONG: class Receipt(Invoice), only because both need print_header(). r.print_header() is found in Invoice.",
+    "A receipt is not a kind of invoice. Yet now it is one, with everything an Invoice has.",
+    "RIGHT: they happen to share one job, and a shared job belongs in its own class that both can hold.",
+    "Inheritance is for what something IS. Composition is for what something HAS or USES. Sharing a method is a 'uses'.",
+    "Warning sign: a hierarchy more than two or three levels deep. Nobody can hold it in their head.",
+    "Warning sign: a parent that keeps gaining methods only one child ever uses."
+  ];
+  return { n: 7, W, go(step, fwd) {
+    W.clear(); inv.reset(); wrong.clear(); right.clear();
+    const codeOn = step <= 4;
+    W.show(wrong.el, codeOn && step >= 1); W.show(right.el, codeOn && step >= 3);
+    if (step === 1 || step === 2) wrong.hl([1, 2, 3, 4], "bad");
+    if (step === 3) right.hl([1, 2, 3, 4, 5], "good");
+    if (step === 4) { right.hl([1, 2, 3, 4, 5], "good"); wrong.hl([1, 2, 3, 4], "dim"); }
+    W.show(signs, step >= 5);
+    items.forEach((li, i) => li.classList.toggle("hot", step === 5 + i));
+    wG.classList.toggle("hide", step >= 3); rG.classList.toggle("hide", !(step === 3 || step === 4));
+    tower.classList.toggle("hide", step !== 5); fat.classList.toggle("hide", step !== 6);
+    W.show(uses, step === 4);
+    // the receipt: beside the invoice at first, then stacked on it
+    if (step === 0) place(W, rec, 330, 0, 0, false);
+    else if (step === 1 && fwd) { place(W, rec, 330, 0, 0, false); void rec.offsetWidth; place(W, rec, 0, 0, inv.top, true); }
+    else place(W, rec, 0, 0, inv.top, false);
+    rec._x = step === 0 ? 330 : 0; rec._z = step === 0 ? 0 : inv.top;
+    W.show(notKind, step === 2);
+    if (step === 2) { inv.mark("print_header", "warn"); inv.mark("...", "warn"); }
+    W.show(ball, step === 1);
+    if (step === 1) {
+      ball.say("r.print_header()");
+      W.put(ball, 0, 330, 120);
+      const ph = inv.at("print_header");
+      W.fly(ball, [[0, 110, inv.top + 90], [0, 110, inv.top + 30], ph, [ph[0] - 215, ph[1], ph[2]]], 3000, fwd, 1500);
+      const d = () => { inv.open("print_header", true); inv.mark("print_header", "hit"); };
+      if (fwd) W.later(d, 4200); else d();
+    }
+    const cams = [
+      { x: 160, y: 30, s: .95, rz: 8, px: 300, py: 120 },
+      { x: 20, y: 30, s: 1.0, rz: 8, px: 290, py: 150 },
+      { x: 20, y: 30, s: 1.0, rz: 8, px: 290, py: 150 },
+      { x: 15, y: 40, s: 1.0, rz: 8, px: 290, py: 90 },
+      { x: 15, y: 40, s: 1.0, rz: 8, px: 290, py: 90 },
+      { x: 0, y: 30, s: .85, rz: 8, px: 290, py: 170 },
+      { x: 0, y: 30, s: .95, rz: 8, px: 290, py: 130 }
+    ];
+    W.cam(cams[step]);
+    return { cap: caps[step], ck: step === 1 || step === 2 ? "bad" : step === 3 || step === 4 ? "good" : step >= 5 ? "warn" : "" };
+  } };
+};
+
+// ---------- The fragile base class ----------
+const FRAG = `class BankAccount:
+    def __init__(self, balance):
+        self._balance = balance
+
+class SavingsAccount(BankAccount):
+    def add_interest(self):
+        self._balance = self._balance * 1.05
+
+s = SavingsAccount(10000)
+s.add_interest()`;
+S.fragile = (root) => {
+  const W = World(root, VP);
+  W.ground(-320, -260, 1200, 600);
+  const c = code(root, FRAG, { x: 40, y: 122, w: 520, fs: 16, title: "accounts.py" });
+  const out = code(root, `{'_BankAccount__balance': 10000}`, { x: 40, y: 422, w: 520, fs: 16, cls: "out", title: "Output" });
+  const bank = W.cabinet(0, 0, { name: "BankAccount", drawers: ["__init__"], w: 280, dfs: 22, fs: 23 });
+  const sav = W.cabinet(0, 0, { name: "SavingsAccount", drawers: ["add_interest"], w: 280, dfs: 22, fs: 23, z: bank.top, c: "#0A8F8A" });
+  const s = W.obj(300, 210, { title: "s", slots: [["_balance", "10000"]], w: 480, kw: .64, kfs: 22, vfs: 24 });
+  const keyEl = s.k._balance.front.firstChild;
+  const ball = W.ball();
+  const e1 = W.burst(220, 210, 250, `AttributeError: 'SavingsAccount' object<br>has no attribute '_balance'`);
+  const e2 = W.burst(220, 210, 250, `AttributeError: 'SavingsAccount' object<br>has no attribute '_SavingsAccount__balance'.<br>Did you mean: '_BankAccount__balance'?`);
+  const renamed = W.bb({ x: 300, y: 210, z: 150, cls: "hide", html: lab("Python renamed it", "warn", 24) });
+  const lives = W.bb({ x: 300, y: 210, z: 150, cls: "hide", html: say("The subclass lives inside your object.", "", "", 300, 22) });
+  const card = el(root, "ov card", `<div class="sec">The fragile base class</div>A subclass that reaches into <code>_balance</code> directly breaks the moment you rename it. And you will never meet the people who wrote those subclasses.
+    <div class="sec">What to do about it</div><ol class="todo"><li><code>_name</code>: subclasses may use this</li><li class="dbl"><code>__name</code>: subclasses keep out</li><li>Offer subclasses a proper method instead of a reachable attribute</li></ol>`);
+  card.style.cssText = "left:40px;top:124px;width:540px;font-size:20px;";
+  const dbl = card.querySelector(".dbl");
+  const caps = [
+    "A subclass is the most intimate client your class will ever have. It lives inside your object.",
+    "s.add_interest() runs in SavingsAccount and reaches straight into the parent's _balance: 10000 × 1.05 = 10500.0.",
+    "Rename _balance to _amount in BankAccount. The subclass breaks the moment you rename it, and you will never meet the people who wrote it.",
+    "What to do about it: _name for what subclasses may use, __name for what they must keep out of, or a proper method instead.",
+    "With __balance, Python renames the attribute to _BankAccount__balance. This is the one place where double underscores are the right tool.",
+    "Inside SavingsAccount, self.__balance becomes self._SavingsAccount__balance. The subclass cannot reach the parent's slot by accident.",
+    "Every class you let somebody inherit from is a promise you will have to keep."
+  ];
+  return { n: 7, W, go(step, fwd) {
+    W.clear(); bank.reset(); sav.reset(); c.clear(); out.clear();
+    // the code, as it stands at this step
+    const dunder = step >= 4;
+    c.line(3, step === 2 || step === 3 ? "        self._amount = balance" : dunder ? "        self.__balance = balance" : "        self._balance = balance");
+    c.line(7, step >= 5 ? "        self.__balance = self.__balance * 1.05" : "        self._balance = self._balance * 1.05");
+    c.line(10, step === 4 ? "print(vars(s))" : "s.add_interest()");
+    const hl = [[5, 6, 7], [6, 7, 10], [3, 7], [], [3, 10], [6, 7, 10], [3, 7]][step];
+    c.hl(hl, step === 2 || step === 5 ? "bad" : "on");
+    if (step === 2) c.hl([10]); if (step === 5) c.hl([10]);
+    const cardOn = step === 3 || step === 6;
+    W.show(card, cardOn); W.show(c.el, !cardOn); W.show(out.el, step === 4);
+    dbl.classList.toggle("hot", step === 6);
+    keyEl.textContent = step === 2 || step === 3 ? "_amount" : dunder ? "_BankAccount__balance" : "_balance";
+    s.set("_balance", step === 1 ? "10500.0" : "10000", step === 1 ? "hit" : "");
+    W.show(lives, step === 0); W.show(renamed, step === 4);
+    W.show(e1, step === 2 && !fwd); W.show(e2, step === 5 && !fwd);
+    W.show(ball, step === 1 || step === 2 || step === 5);
+    if (step === 1 || step === 2 || step === 5) {
+      ball.say("s.add_interest()");
+      W.put(ball, 300, 450, 120);
+      W.fly(ball, [s.at(), [0, 110, sav.top + 40], sav.at("add_interest")], 2600, fwd, 200);
+      const reach = step === 1 ? "self._balance" : step === 2 ? "self._balance" : "self._SavingsAccount__balance";
+      const arrive = () => { sav.mark("add_interest", "hit"); };
+      const go2 = () => { ball.say(reach); W.fly(ball, [[150, 200, 140], s.at()], 1500, true, 0); };
+      const end = () => {
+        W.show(ball, false);
+        if (step === 1) s.set("_balance", "10500.0", "hit");
+        else { s.set("_balance", "10000", "bad"); W.show(step === 2 ? e1 : e2, true); }
+      };
+      if (fwd) {
+        s.set("_balance", "10000");
+        if (step === 5) ball.say("s.add_interest()");
+        W.later(arrive, 2800); W.later(go2, 3200); W.later(end, 4800);
+      } else { arrive(); ball.say(reach); W.put(ball, ...s.at()); end(); }
+    }
+    if (step === 4 && fwd) { keyEl.textContent = "__balance"; W.show(renamed, false); W.later(() => { keyEl.textContent = "_BankAccount__balance"; s.set("_balance", "10000", "hit"); W.show(renamed, true); }, 1400); }
+    W.cam({ x: 150, y: 110, s: .85, rz: 6, px: cardOn ? 250 : 220, py: 105 });
+    return { cap: caps[step], ck: step === 1 ? "" : step === 2 ? "bad" : step === 6 ? "good" : step >= 4 ? "good" : "" };
+  } };
+};
+
+// ---------- Problem 14 ----------
+const LIST11 = ["append", "clear", "copy", "count", "extend", "index", "insert", "pop", "remove", "reverse", "sort"];
+const BROKEN = `class Stack(list):
+    def push(self, item):
+        self.append(item)
+    def pop_top(self):
+        return self.pop()`;
+S.practice = (root) => {
+  const W = World(root, VP);
+  W.ground(-360, -260, 900, 560);
+  const card = el(root, "ov card pcard", `<div>A stack holds items so that only the most recently added one can be removed. Somebody wrote this.</div>`);
+  card.style.cssText = "left:40px;top:122px;width:600px;padding:14px 20px;";
+  code(card, BROKEN, { fs: 16, style: "position:relative;left:auto;top:auto;width:auto;margin:8px 0 6px;box-shadow:none;" });
+  card.insertAdjacentHTML("beforeend", `<h4 style="margin-top:6px">Your task</h4><ol><li>Name three things a user can do to this Stack that break the rule above</li><li>Apply the three tests: which one does it fail?</li><li>Rewrite it so those three things become impossible</li></ol>
+    <div class="hint"><b>Hint:</b> a Python list can do far more than append and pop. Open the list documentation, or just try things, and see what else a Stack inherited without asking.</div>`);
+  const lst = gridCab(W, 0, 0, { name: "list", drawers: ["append", "pop", "?", "?", "?", "?"], cols: 3, cw: 150, dfs: 22, fs: 24 });
+  lst.querySelectorAll(".drw").forEach((b) => { if (b.textContent === "?") b.classList.add("ghost"); });
+  W.cabinet(0, 0, { name: "Stack(list)", drawers: ["push", "pop_top"], w: 280, dfs: 22, fs: 23, z: lst.top, c: "#0A8F8A" });
+  W.bb({ x: 0, y: 150, z: 0, html: lab("What else came with it?", "warn", 26) });
+  el(root, "timebar", "Time: 12 minutes. Pairs. Laptops open for this one.");
+  W.cam({ x: 0, y: 60, s: .95, rz: 8, px: 330, py: 130 }, true);
+  return { n: 1, W, nocap: true, go() { return {}; } };
+};
+
+const ABUSE = `class Stack(list):
+    def push(self, item):
+        self.append(item)
+    def pop_top(self):
+        return self.pop()
+
+s = Stack()
+s.push("a")
+s.push("b")
+s.insert(0, "sneaked in")
+s.reverse()
+s[1] = "replaced"`;
+const COMPOSED = `class Stack:
+    def __init__(self):
+        self._items = []
+    def push(self, item):
+        self._items.append(item)
+    def pop(self):
+        if not self._items:
+            raise IndexError("Stack is empty")
+        return self._items.pop()
+    def is_empty(self):
+        return len(self._items) == 0
+s = Stack()
+s.push("a")
+s.push("b")
+s.insert(0, "sneaked in")`;
+S.solution = (root) => {
+  const W = World(root, VP);
+  W.ground(-420, -280, 1260, 620);
+  const c1 = code(root, ABUSE, { x: 40, y: 122, w: 470, fs: 15, title: "broken.py" });
+  const out = code(root, `['sneaked in', 'a', 'b']
+['b', 'a', 'sneaked in']
+['b', 'replaced', 'sneaked in']`, { x: 40, y: 450, w: 470, fs: 15, cls: "out", title: "print(s) after each line" });
+  const c2 = code(root, COMPOSED, { x: 40, y: 122, w: 470, fs: 15, title: "stack.py" });
+  const which = el(root, "ov card red", `<h4>Which test does it fail?</h4><div style="font:700 30px var(--f-head);color:var(--red);margin:4px 0 8px">Test 1 and test 3</div>A stack is not a kind of list. It only needs one.`);
+  which.style.cssText = "left:40px;top:124px;width:470px;font-size:21px;";
+  // the inherited version: Stack on top of list
+  const inh = W.grp(0, 0, 0);
+  const lst = gridCab(W, 0, 0, { name: "list", drawers: LIST11, cols: 3, cw: 150, dfs: 22, fs: 24 }, inh);
+  const stk = W.cabinet(0, 0, { name: "Stack(list)", drawers: ["push", "pop_top"], w: 280, dfs: 22, fs: 23, z: lst.top, c: "#0A8F8A" }, inh);
+  const n11 = W.bb({ x: 0, y: 150, z: 0, html: lab("11 list methods, all inherited", "warn", 26) }, inh);
+  // the composed version: a Stack cabinet with three methods plus __init__
+  const comp = W.cabinet(0, 0, { name: "Stack", drawers: ["__init__", "push", "pop", "is_empty"], w: 280, dfs: 22, fs: 24, c: "#1B7F5A" });
+  const three = W.bb({ x: 0, y: 150, z: 0, cls: "hide", html: lab("three, plus __init__", "good", 26) });
+  // the object: a column of items, bottom = index 0
+  const OX = 370, OY = 170;
+  const col = W.grp(OX, OY, 0);
+  const outer = W.grp(0, 0, 0, "hide", col);
+  W.box({ w: 290, d: 170, h: 8, c: "#9CCFC9" }, outer);
+  W.box({ z: 8, w: 270, d: 150, h: 196, c: "#1B7F5A", cls: "glass" }, outer);
+  const inner = W.grp(0, 0, 8, "", col);
+  W.box({ w: 220, d: 104, h: 6, c: "#9CCFC9" }, inner);
+  W.box({ z: 6, w: 204, d: 90, h: 3 * 46 + 18, c: "#0A8F8A", cls: "glass" }, inner);
+  const tS = W.bb({ x: 0, y: 0, z: 236, html: lab("s", "mono", 28) }, col);
+  const tItems = W.bb({ x: -175, y: 40, z: 60, cls: "hide", html: lab("_items", "mono", 24) }, col);
+  const VALS = ["a", "b", "sneaked in", "replaced"];
+  const item = {};
+  VALS.forEach((v) => { item[v] = W.box({ y: 10, z: 20, w: 180, d: 40, h: 38, c: v === "a" || v === "b" ? "#C9761F" : "#AC3B2A", cls: "nt hide", front: `<div class="ftxt mono" style="font-size:22px">'${v}'</div>` }, col); });
+  const zOf = (i) => 20 + i * 46;
+  function setItems(list, fwd, delay, from) {
+    VALS.forEach((v) => { if (!list.includes(v)) W.show(item[v], false); });
+    list.forEach((v, i) => {
+      const b = item[v]; W.show(b, true);
+      if (fwd && b._p) {
+        const start = from && from[v] ? from[v] : null;
+        if (start) W.put(b, ...start);
+        W.fly(b, [[0, 10, zOf(i)]], 1000, true, delay || 0);
+      } else W.put(b, 0, 10, zOf(i));
+    });
+  }
+  const ball = W.ball();
+  const err = W.burst(200, 60, 300, `AttributeError: 'Stack' object has no attribute 'insert'`);
+  const caps = [
+    "Stack(list) inherits every public list method: all 11 of them, as drawers below its own two.",
+    "s.push(\"a\"), s.push(\"b\"): push is found in Stack and calls append, found in list. So far, a stack.",
+    "Three things that break it. 1: s.insert(0, \"sneaked in\"). insert is found in list. An item lands at the bottom, under the others.",
+    "2: s.reverse(). Found in list too. The whole stack turns upside down.",
+    "3: s[1] = \"replaced\". An item in the middle is overwritten. All three are legal. None touches an underscore.",
+    "A Stack has a list. The list is sealed inside, in _items. From outside there are three methods, plus __init__.",
+    "s.insert(0, \"sneaked in\"): Python looks in s, then in Stack. There is no insert drawer, so the call fails.",
+    "Which test does it fail? Test 1 and test 3. A stack is not a kind of list. It only needs one.",
+    "Inheriting gave the Stack every list method ever written, including the ones that destroy it. Composition gives it three, plus __init__, and every one obeys the rule."
+  ];
+  const LISTS = [[], ["a", "b"], ["sneaked in", "a", "b"], ["b", "a", "sneaked in"], ["b", "replaced", "sneaked in"]];
+  return { n: 9, W, go(step, fwd) {
+    W.clear(); lst.reset(); stk.reset(); comp.reset(); c1.clear(); c2.clear(); out.clear();
+    const broken = step <= 4;
+    inh.classList.toggle("hide", !broken); W.show(comp, !broken);
+    W.show(n11, step === 0); W.show(three, step === 5 || step === 8);
+    W.show(c1.el, broken); W.show(out.el, broken && step >= 2); W.show(c2.el, !broken && step <= 6); W.show(which, step >= 7);
+    out.ln.forEach((l, i) => l.classList.toggle("gone", i > step - 2));
+    if (step >= 2 && step <= 4) out.hl([step - 1], "bad");
+    W.show(outer, !broken); W.show(tItems, !broken);
+    tS.in.innerHTML = lab("s", "mono", 28);
+    // code lines
+    if (broken) c1.hl([[1, 2, 3, 4, 5], [7, 8, 9, 2, 3], [10], [11], [12]][step], step >= 2 ? "bad" : "on");
+    else if (step === 5) c2.hl([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14], "good");
+    else if (step === 6) { c2.hl([12, 13, 14]); c2.hl([15], "bad"); }
+    if (step === 0) LIST11.forEach((m) => lst.mark(m, "warn"));
+    // items in the column
+    const list = broken ? LISTS[step] : ["a", "b"];
+    if (step === 2 && fwd) {
+      setItems(["a", "b"], false);
+      W.later(() => setItems(list, true, 0, { "sneaked in": [-230, 10, zOf(0)] }), 2600);
+    } else if ((step === 3 || step === 4) && fwd) {
+      setItems(LISTS[step - 1], false);
+      W.later(() => setItems(list, true, 0, step === 4 ? { replaced: [0, 120, zOf(1) + 80] } : null), 2600);
+    } else if (step === 1 && fwd) {
+      setItems([], false);
+      W.later(() => setItems(["a"], true, 0, { a: [0, 200, zOf(0) + 120] }), 2200);
+      W.later(() => setItems(["a", "b"], true, 0, { b: [0, 200, zOf(1) + 120] }), 3400);
+    } else setItems(list, false);
+    // output lines appear after the call lands
+    if (fwd && step >= 2 && step <= 4) { out.ln[step - 2].classList.add("gone"); W.later(() => out.ln[step - 2].classList.remove("gone"), 2600); }
+    // the call ball
+    W.show(ball, step >= 1 && step <= 4 || step === 6);
+    W.show(err, step === 6 && !fwd);
+    const sTop = [0, 110, stk.top + 30];
+    if (step >= 1 && step <= 4) {
+      const m = ["", "append", "insert", "reverse", ""][step];
+      ball.say(['', 's.push("b")', 's.insert(0, ...)', "s.reverse()", 's[1] = "replaced"'][step]);
+      W.put(ball, OX, OY + 260, 120);
+      const pts = [[OX, OY + 100, 120], sTop, stk.at("pop_top"), step === 4 ? [0, 110, lst.top - 20] : lst.at(m)];
+      if (step === 1) pts.splice(3, 0, stk.at("push"));
+      W.fly(ball, pts, 2400, fwd, 0);
+      const done = () => {
+        W.show(ball, false);
+        if (step === 1) { stk.mark("push", "hit"); lst.mark("append", "hit"); }
+        else if (m) lst.mark(m, "bad");
+      };
+      if (fwd) W.later(done, 2500); else done();
+    }
+    if (step === 6) {
+      ball.say('s.insert(0, ...)');
+      W.put(ball, OX, OY + 260, 120);
+      W.fly(ball, [[OX, OY + 110, 140], [0, 110, comp.top + 30], comp.at("__init__"), comp.at("is_empty"), [0, 110, -10]], 3600, fwd, 0);
+      const d = () => ["__init__", "push", "pop", "is_empty"].forEach((m) => comp.mark(m, "ghost"));
+      if (fwd) { W.later(d, 2400); W.later(() => { W.show(err, true); W.show(ball, false); }, 3700); } else { d(); W.show(ball, false); }
+    }
+    if (step === 5) ["push", "pop", "is_empty"].forEach((m) => comp.mark(m, "hit"));
+    if (step === 8) ["push", "pop", "is_empty"].forEach((m) => comp.mark(m, "hit"));
+    W.cam(broken ? { x: 150, y: 90, s: .8, rz: 6, px: 240, py: 130 } : { x: 190, y: 90, s: .85, rz: 6, px: 220, py: 95 });
+    return { cap: caps[step], ck: step >= 2 && step <= 4 ? "bad" : step === 7 ? "warn" : step >= 5 ? "good" : "" };
+  } };
+};
+
+window.OOP3D.run({
+  title: "OOP in Python · Week 7 · Lecture 2",
+  foot: "OOP in Python · Week 7 · Lecture 2",
+  slides: [
+    { type: "cover", scene: "cover", k: "WEEK 7 · LECTURE 2", t: "When inheritance<br>is the wrong answer", sub: "The lecture that saves you from your own cleverness", badge: "OOP in Python · BS Computer Science" },
+    { scene: "gates", k: "WEEK 7 · LECTURE 2", t: "The temptation" },
+    { scene: "test1", k: "WEEK 7 · LECTURE 2", t: "Test 1: always, not sometimes" },
+    { scene: "test2", k: "WEEK 7 · LECTURE 2", t: "Test 2: the square and the rectangle" },
+    { scene: "test3", k: "WEEK 7 · LECTURE 2", t: "Test 3: sharing code is not a relationship" },
+    { scene: "fragile", k: "WEEK 7 · LECTURE 2", t: "And the one you already met" },
+    { type: "practice", scene: "practice", k: "PRACTICE", t: "Problem 14 · The broken Stack" },
+    { type: "solution", scene: "solution", k: "SOLUTION", t: "Problem 14 · A Stack has a list" }
+  ]
+});
+})();
+</script>
+</body>
+</html>
