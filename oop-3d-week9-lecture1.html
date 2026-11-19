@@ -1,0 +1,1057 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OOP · Week 9 · Lecture 1 · One call, many behaviours (3D)</title>
+<!--
+  OOP · Week 9 · Lecture 1 · One call, many behaviours (3D)
+  One file, no internet needed. Open in Chrome or Edge.
+  Keys: Right / Space = next step, Left = back, F = full screen.
+  Drag any 3D scene with the mouse to look at it from another side.
+  Built from src/w9l1.js by src/build.py. Edit the source, not this file.
+-->
+<style>
+:root {
+  --page: #E4F1F1; --stage: #FFFFFF; --ink: #10292C; --muted: #5B7275;
+  --vio: #0A8F8A; --vio-d: #036672; --tint: #E1F3F1; --tint2: #F3FAF9; --line: #C5E5E2;
+  --amber: #C9761F; --amber-t: #FCEEDD; --green: #1B7F5A; --green-t: #E1F3E9; --red: #AC3B2A; --red-t: #FBE8E5;
+  --device: #4B2E83; --software: #6E52B5; --network: #1B7F5A; --data: #C9761F; --people: #AC3B2A;
+  --f-head: Cambria, "Source Serif 4", Georgia, serif;
+  --f-body: Calibri, "Segoe UI", Inter, system-ui, sans-serif;
+  --f-mono: "Courier New", Consolas, monospace;
+  --move: 1200ms;
+  --ease: cubic-bezier(.45,.05,.25,1);
+  --ui-bg: #FFFFFF; --ui-fg: #10292C; --ui-line: #BBDAD7;
+}
+@media (prefers-reduced-motion: reduce) { :root { --move: 1ms; } }
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--page); color: var(--ui-fg); font-family: var(--f-body); }
+.shell { max-width: 1400px; margin: 0 auto; padding: 14px 16px 28px; display: grid; gap: 10px; }
+.frame { position: relative; width: 100%; overflow: hidden; border-radius: 10px; box-shadow: 0 6px 28px rgb(5 60 62 / .22); background: var(--stage); }
+.frame:fullscreen { background: #061D20; border-radius: 0; }
+.stage { position: absolute; left: 0; top: 0; width: 1280px; height: 720px; transform-origin: 0 0; background: var(--stage); overflow: hidden; color: var(--ink); }
+.slide { position: absolute; inset: 0; }
+
+/* slide chrome */
+.kicker { position: absolute; left: 64px; top: 28px; font: 700 14px var(--f-body); letter-spacing: .14em; text-transform: uppercase; color: var(--vio); z-index: 5; }
+.slide.practice .kicker { color: var(--amber); }
+.slide.solution .kicker { color: var(--green); }
+.ttl { position: absolute; left: 64px; top: 50px; right: 64px; font: 700 38px/1.15 var(--f-head); color: var(--vio-d); z-index: 5; }
+.slide.practice .ttl { color: var(--amber); }
+.slide.solution .ttl { color: var(--green); }
+.cap { position: absolute; left: 64px; right: 64px; top: 602px; height: 70px; border-radius: 10px; background: var(--tint); padding: 0 20px; display: flex; align-items: center; gap: 14px; z-index: 6;
+  font: 500 20px/1.3 var(--f-body); color: var(--ink); transition: background 400ms, opacity 300ms; }
+.cap.empty { opacity: 0; }
+.cap .txt { flex: 1; }
+.cap .tags { display: flex; gap: 8px; flex: none; }
+.cap.good { background: var(--green-t); } .cap.warn { background: var(--amber-t); } .cap.bad { background: var(--red-t); }
+.tag { display: inline-block; padding: 5px 13px; border-radius: 999px; color: #fff; font: 700 15px var(--f-body); letter-spacing: .03em; animation: pop 450ms ease-out; white-space: nowrap; }
+.t-device { background: var(--device); } .t-software { background: var(--software); } .t-network { background: var(--network); } .t-data { background: var(--data); } .t-people { background: var(--people); }
+@keyframes pop { 0% { transform: scale(.4); opacity: 0; } 60% { transform: scale(1.12); } 100% { transform: scale(1); opacity: 1; } }
+.foot { position: absolute; left: 64px; top: 688px; font: 13px var(--f-body); color: var(--muted); z-index: 6; }
+.ctr { position: absolute; right: 64px; top: 688px; font: 700 12px var(--f-mono); color: var(--muted); z-index: 6; }
+.timebar { position: absolute; left: 64px; right: 64px; top: 602px; height: 70px; border-radius: 10px; background: var(--amber-t); color: var(--amber); font: 700 21px var(--f-body); display: flex; align-items: center; padding: 0 22px; z-index: 6; }
+
+/* 3D world */
+.vp { position: absolute; overflow: hidden; perspective: 2000px; perspective-origin: 50% 40%; background: linear-gradient(#FFFFFF, var(--tint2) 50%, #DDEFED); cursor: grab; touch-action: none; }
+.vp.clear { background: none; }
+.vp:active { cursor: grabbing; }
+.world { position: absolute; left: 50%; top: 50%; width: 0; height: 0; transform-style: preserve-3d; transition: transform var(--move) var(--ease); }
+.world.nt, .world.nt .bb { transition: none !important; }
+.b, .grp { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-style: preserve-3d; transition: transform var(--move) var(--ease); }
+.b.nt { transition: none; }
+.f { position: absolute; left: 0; top: 0; transform-origin: 0 0; overflow: hidden; transition: opacity 500ms, filter 500ms; }
+.hide .f, .hide .bb, .bb.hide { opacity: 0; }
+.dim .f { filter: grayscale(1) brightness(1.3); opacity: .45; }
+.dim .bb { opacity: .25; }
+.ground { position: absolute; left: 0; top: 0; border-radius: 40px; background-color: #EEF7F6;
+  background-image: linear-gradient(#D2E9E6 2px, transparent 2px), linear-gradient(90deg, #D2E9E6 2px, transparent 2px); background-size: 80px 80px; box-shadow: 0 0 0 4px #C8E3E0; }
+.plate { position: absolute; left: 0; top: 0; border-radius: 20px; display: flex; align-items: flex-end; justify-content: center; padding: 12px; text-align: center;
+  font: 800 22px var(--f-body); letter-spacing: .14em; text-transform: uppercase; color: var(--vio-d); transition: opacity 500ms; }
+.plate.city { background: #DCEFEC; border: 3px dashed #93CEC7; }
+.plate.zone { background: #FFFFFF; border: 3px solid #C8E3E0; }
+.plate.disc { border-radius: 50%; background: radial-gradient(#3FB8AE, #036672 70%); box-shadow: 0 0 0 10px rgb(255 255 255 / .12); }
+.plate.small { font-size: 16px; letter-spacing: .06em; align-items: center; }
+.plate.hide { opacity: 0; }
+.strip { position: absolute; left: 0; top: 0; transform-origin: 0 0; border-radius: 5px; background: #B4DAD5; }
+.strip.on { background: repeating-linear-gradient(90deg, var(--network) 0 16px, #A6E2C9 16px 28px); background-size: 28px 100%; animation: flow .7s linear infinite; }
+.strip.lane { background: #CDE7E4; }
+@keyframes flow { to { background-position: 28px 0; } }
+.bb { position: absolute; left: 0; top: 0; width: 0; height: 0; transform: var(--p) rotateZ(calc(var(--rz) * -1)) rotateX(calc(var(--rx) * -1)); transition: transform var(--move) var(--ease), opacity 400ms; }
+.bb > .in { position: absolute; left: 0; bottom: 0; transform: translateX(-50%); white-space: nowrap; }
+.lab { display: inline-block; background: #fff; border: 2px solid var(--vio); color: var(--vio-d); font: 700 19px var(--f-body); padding: 3px 12px; border-radius: 999px; box-shadow: 0 3px 8px rgb(5 60 62 / .18); }
+.lab.big { font-size: 23px; padding: 5px 15px; }
+.lab.good { border-color: var(--green); color: var(--green); } .lab.bad { border-color: var(--red); color: var(--red); } .lab.warn { border-color: var(--amber); color: var(--amber); }
+.pk { display: inline-block; background: var(--data); color: #fff; font: 700 16px var(--f-mono); padding: 4px 10px; border-radius: 8px; box-shadow: 0 3px 8px rgb(0 0 0 / .25); }
+.pk.lock { background: #241C3B; } .pk.tick { background: #1976D2; } .pk.sms { background: var(--network); }
+.say { display: inline-block; white-space: normal; width: 250px; background: #fff; border-left: 6px solid var(--vio); border-radius: 10px; padding: 9px 13px; font: 600 16px/1.3 var(--f-body); color: var(--ink); box-shadow: 0 4px 12px rgb(5 60 62 / .2); text-align: left; }
+.say i { display: block; font-weight: 400; color: var(--muted); margin-top: 3px; }
+.say.good { border-color: var(--green); } .say.bad { border-color: var(--red); } .say.warn { border-color: var(--amber); }
+.rings { position: relative; width: 0; height: 0; }
+.rings i { position: absolute; left: -36px; top: -36px; width: 72px; height: 72px; border: 4px solid var(--network); border-radius: 50%; opacity: 0; }
+.on .rings i { animation: ring 1.8s ease-out infinite; }
+.on .rings i:nth-child(2) { animation-delay: .6s; } .on .rings i:nth-child(3) { animation-delay: 1.2s; }
+@keyframes ring { 0% { transform: scale(.2); opacity: .95; } 100% { transform: scale(1.9); opacity: 0; } }
+
+/* faces with content */
+.ftxt { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; color: #fff; font: 700 20px var(--f-body); padding: 2px 6px; }
+.ftxt.word { font: 700 46px var(--f-head); }
+.ftxt.ped { font: 800 25px var(--f-body); letter-spacing: .04em; justify-content: flex-start; padding-left: 14px; gap: 10px; }
+.ftxt.ped b { display: inline-flex; width: 30px; height: 30px; border-radius: 50%; background: #fff; align-items: center; justify-content: center; font-size: 18px; }
+.ftxt.dark { color: var(--ink); }
+.ftxt.q { font: 800 54px var(--f-head); }
+.scr { position: absolute; inset: 8px 6px; border-radius: 7px; background: #F1EDFA; display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; padding: 6px; font: 700 14px/1.25 var(--f-body); color: var(--ink); }
+.scr.big { inset: 16px 12px; border-radius: 14px; padding: 14px; gap: 10px; font-size: 25px; }
+.bub { align-self: flex-end; background: #D5F5C6; border-radius: 8px; padding: 3px 7px; max-width: 100%; }
+.bub.in { align-self: flex-start; background: #fff; }
+.bub.sys { align-self: stretch; background: #fff; border: 1px solid var(--line); text-align: center; }
+.tk { color: #8C87A0; font-weight: 800; } .tk.blue { color: #1976D2; }
+.dots { align-self: flex-start; background: #fff; border-radius: 8px; padding: 3px 9px; letter-spacing: .15em; animation: blink 1.2s infinite; }
+.rack { position: absolute; inset: 7px; display: grid; grid-template-rows: repeat(8, 1fr); gap: 4px; }
+.rack i { background: #3B3163; border-radius: 2px; position: relative; }
+.rack i::after { content: ""; position: absolute; right: 5px; top: 50%; width: 5px; height: 5px; margin-top: -2.5px; border-radius: 50%; background: #7CF2B0; animation: blink 1.4s infinite; }
+.rack i:nth-child(2n)::after { animation-delay: .5s; } .rack i:nth-child(3n)::after { animation-delay: .9s; background: #FFD27A; }
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+.sway { animation: sway 7s ease-in-out infinite alternate; }
+@keyframes sway { from { transform: rotateZ(-30deg); } to { transform: rotateZ(30deg); } }
+
+/* cover */
+.cv-bg { position: absolute; inset: 0; background: radial-gradient(1200px 700px at 78% 60%, #13A39B, #036672 55%, #02343A); }
+.cv-text { position: absolute; left: 64px; top: 150px; width: 560px; color: #fff; z-index: 5; }
+.cv-text .ck { font: 700 16px var(--f-body); letter-spacing: .16em; color: #C5ECE7; }
+.cv-text .ct { font: 700 68px/1.05 var(--f-head); margin-top: 14px; }
+.cv-text .cs { font: 400 26px/1.3 var(--f-body); color: #E0F5F2; margin-top: 18px; }
+.cv-text .cb { display: inline-block; margin-top: 34px; padding: 9px 16px; border-radius: 999px; background: rgb(255 255 255 / .14); font: 600 16px var(--f-body); color: #fff; }
+.slide.cover .foot, .slide.cover .ctr { color: #A9DCD5; }
+
+/* 2D overlays */
+.ov { position: absolute; z-index: 7; transition: opacity 500ms, transform 500ms; }
+.ov.hide { opacity: 0; transform: translateY(14px); pointer-events: none; }
+.veil { background: rgb(255 255 255 / .86); }
+.card { border-radius: 14px; background: #fff; padding: 18px 22px; box-shadow: 0 6px 22px rgb(5 60 62 / .16); font: 400 19px/1.4 var(--f-body); color: var(--ink); }
+.card h4 { margin: 0 0 6px; font: 700 22px/1.2 var(--f-body); color: var(--vio-d); }
+.card.red { background: var(--red-t); } .card.red h4 { color: var(--red); }
+.card.amber { background: var(--amber-t); } .card.amber h4 { color: var(--amber); }
+.card ol { margin: 6px 0 0; padding-left: 24px; } .card li { margin: 5px 0; }
+.card .lbl { font: 700 13px var(--f-body); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin: 12px 0 6px; }
+.card .tagrow { display: flex; flex-wrap: wrap; gap: 6px; }
+.card .tagrow .tag { animation: none; }
+
+/* controls */
+.controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.btns { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.controls button, .controls select { font: 600 14px var(--f-body); padding: 8px 14px; border-radius: 8px; border: 1px solid var(--ui-line); background: var(--ui-bg); color: var(--ui-fg); cursor: pointer; }
+.controls select { max-width: 360px; }
+.controls button.primary { background: var(--vio-d); color: #fff; border-color: var(--vio-d); }
+.controls button:disabled { opacity: .4; cursor: not-allowed; }
+.controls button:focus-visible, .controls select:focus-visible { outline: 3px solid var(--vio); outline-offset: 2px; }
+.pos { font: 700 13px var(--f-mono); opacity: .75; }
+.hint { font: 14px var(--f-body); opacity: .75; }
+.notes { background: #fff; border: 1px solid var(--ui-line); border-radius: 10px; padding: 14px 18px; font: 16px/1.55 var(--f-body); white-space: pre-wrap; }
+.notes b { display: block; margin-bottom: 4px; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; opacity: .7; }
+
+/* ---------- OOP pieces: cabinets (classes), glass objects, name tags, call ball, code panel ---------- */
+.tag { background: var(--vio-d); }
+.ftxt.mono { font-family: var(--f-mono); font-weight: 700; }
+.ftxt.cabname { font: 700 21px var(--f-mono); letter-spacing: .01em; }
+.lab.mono { font-family: var(--f-mono); }
+.drw .f { transition: background 400ms; }
+.drw.hit .f { background: #A8EBD6 !important; }
+.drw.bad .f { background: #F4C3BA !important; }
+.drw.warn .f { background: #FFE0A8 !important; }
+.drw.ghost .f { background: #E7EFEE !important; }
+.drw.ghost .ftxt { color: #9BB3B0; }
+.glass > .f { background: rgb(10 143 138 / .08) !important; border: 2px solid rgb(10 143 138 / .55); box-sizing: border-box; }
+.val .f { transition: background 400ms; }
+.val.hit .f { background: #BFF2DF !important; }
+.val.bad .f { background: #F8D2CA !important; }
+.ball .f { border-radius: 50%; background: radial-gradient(circle at 35% 35%, #FFF3C4, #F2B33D 55%, #C98510) !important; box-shadow: 0 0 18px 6px rgb(242 179 61 / .55); }
+.pk.call { background: #8A5A00; font-size: 24px; padding: 5px 12px; }
+.strip.ref { background: #2E5D61; border-radius: 4px; transition: transform var(--move) var(--ease), width var(--move) var(--ease); }
+.strip.ref.bad { background: var(--red); } .strip.ref.good { background: var(--green); } .strip.ref.dash { background: repeating-linear-gradient(90deg, #2E5D61 0 14px, transparent 14px 24px); }
+.ahead { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-origin: 0 0; transition: transform var(--move) var(--ease); }
+.ahead::before { content: ""; position: absolute; left: -26px; top: -13px; width: 26px; height: 26px; background: #2E5D61; clip-path: polygon(0 0, 100% 50%, 0 100%); }
+.ahead.bad::before { background: var(--red); } .ahead.good::before { background: var(--green); }
+.say.err { width: auto; max-width: 560px; font: 700 19px/1.3 var(--f-mono); background: #FFF4F2; }
+.burst .err { animation: pop 450ms ease-out; }
+.code { border-radius: 12px; background: #0C2427; color: #E3F2F0; padding: 12px 0; font-family: var(--f-mono); font-weight: 600; line-height: 1.45; box-shadow: 0 8px 26px rgb(5 40 44 / .35); white-space: pre; overflow: hidden; }
+.code .cttl { padding: 0 18px 8px; font: 700 13px var(--f-body); letter-spacing: .12em; text-transform: uppercase; color: #7FB8B1; }
+.code .ln { padding: 0 16px; border-left: 5px solid transparent; transition: background 300ms, opacity 300ms; min-height: 1.45em; }
+.code .ln.on { background: rgb(0 168 150 / .32); border-left-color: #43E3CB; }
+.code .ln.good { background: rgb(27 127 90 / .45); border-left-color: #7CF2B0; }
+.code .ln.bad { background: rgb(172 59 42 / .55); border-left-color: #FF8A75; }
+.code .ln.dim { opacity: .35; }
+.code .kw { color: #78E1D2; font-weight: 800; } .code .st { color: #FFD27A; } .code .nm { color: #FFB0C8; } .code .dec { color: #C7A8FF; } .code .cm { color: #8EA9A6; font-style: italic; font-weight: 400; }
+.code.out { background: #F4FAF9; color: var(--ink); box-shadow: 0 4px 14px rgb(5 40 44 / .18); border: 2px solid var(--line); }
+.code.out .cttl { color: var(--muted); }
+.code.out span { color: inherit !important; font-weight: inherit; font-style: normal; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="frame" id="frame"><div class="stage" id="stage"></div></div>
+  <div class="controls">
+    <div class="btns">
+      <button id="prev" aria-label="Back">← Back</button>
+      <button id="next" class="primary" aria-label="Next">Next →</button>
+      <button id="again">Replay slide</button>
+      <button id="full">Full screen</button>
+      <label for="jump" class="hint">Go to</label>
+      <select id="jump"></select>
+    </div>
+    <span class="pos" id="pos"></span>
+  </div>
+  <span class="hint">→ or Space: next step. ←: back. F: full screen. Drag a 3D scene with the mouse or a finger to turn it.</span>
+</div>
+<script>
+window.OOP3D = (() => {
+"use strict";
+const stage = document.getElementById("stage"), frame = document.getElementById("frame");
+const RM = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const T = (ms) => (RM ? 1 : ms);
+const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+function el(parent, cls, html) { const e = document.createElement("div"); if (cls) e.className = cls; if (html != null) e.innerHTML = html; parent.appendChild(e); return e; }
+function shade(hex, f) {
+  const n = parseInt(hex.slice(1), 16), t = f < 0 ? 0 : 255, p = Math.abs(f);
+  const ch = (v) => Math.round(v + (t - v) * p);
+  return `rgb(${ch(n >> 16)},${ch((n >> 8) & 255)},${ch(n & 255)})`;
+}
+const COL = { Device: "#4B2E83", Software: "#6E52B5", Network: "#1B7F5A", Data: "#C9761F", People: "#AC3B2A" };
+const tagsHTML = (a) => (a || []).map((t) => `<span class="tag t-${t.toLowerCase()}">${t}</span>`).join("");
+let lastDrag = 0;
+
+// ---------------- 3D world ----------------
+// Ground coordinates: x runs left to right, y runs towards the viewer, z is height above the ground.
+function World(root, rect, cls) {
+  const vp = el(root, "vp" + (cls ? " " + cls : ""));
+  Object.assign(vp.style, { left: rect.x + "px", top: rect.y + "px", width: rect.w + "px", height: rect.h + "px" });
+  const world = el(vp, "world");
+  const timers = [], anims = [];
+  let camNow = { x: 0, y: 0, s: 1, rx: 56, rz: 16, px: 0, py: 50 }, orbit = { rz: 0, rx: 0 };
+  const W = { vp, world };
+
+  function applyCam() {
+    const c = camNow, rx = Math.max(15, Math.min(82, c.rx + orbit.rx)), rz = c.rz + orbit.rz;
+    world.style.setProperty("--rx", rx + "deg");
+    world.style.setProperty("--rz", rz + "deg");
+    world.style.transform = `translate3d(${c.px}px,${c.py}px,0) scale(${c.s}) rotateX(${rx}deg) rotateZ(${rz}deg) translate3d(${-c.x}px,${-c.y}px,0)`;
+  }
+  W.cam = (c, instant) => {
+    camNow = Object.assign({ x: 0, y: 0, s: 1, rx: 56, rz: 16, px: 0, py: 50 }, c); orbit = { rz: 0, rx: 0 };
+    if (instant) world.classList.add("nt");
+    applyCam();
+    if (instant) { void world.offsetWidth; world.classList.remove("nt"); }
+  };
+  // drag to look around
+  let drag = null;
+  vp.addEventListener("pointerdown", (e) => { drag = { x: e.clientX, y: e.clientY, rz: orbit.rz, rx: orbit.rx, moved: false }; try { vp.setPointerCapture(e.pointerId); } catch (err) {} });
+  vp.addEventListener("pointermove", (e) => {
+    if (!drag) return;
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    if (Math.abs(dx) + Math.abs(dy) > 5) drag.moved = true;
+    if (!drag.moved) return;
+    orbit.rz = drag.rz - dx * 0.25; orbit.rx = drag.rx - dy * 0.2;
+    world.classList.add("nt"); applyCam();
+  });
+  const endDrag = () => { if (!drag) return; if (drag.moved) lastDrag = Date.now(); drag = null; void world.offsetWidth; world.classList.remove("nt"); };
+  vp.addEventListener("pointerup", endDrag); vp.addEventListener("pointercancel", endDrag);
+
+  const tf = (b, p) => `translate3d(${p.x - b._w / 2}px,${p.y - b._d / 2}px,${p.z}px) scale3d(1,1,${b._g})`;
+  const place = (b) => { b.style.transform = tf(b, b._p); };
+
+  W.ground = (x, y, w, h) => { const g = el(world, "ground"); g.style.cssText += `width:${w}px;height:${h}px;transform:translate3d(${x}px,${y}px,0);`; return g; };
+  W.plate = (x, y, w, d, cls, html, parent) => { const e = el(parent || world, "plate " + (cls || ""), html || ""); e.style.cssText += `width:${w}px;height:${d}px;transform:translate3d(${x - w / 2}px,${y - d / 2}px,2px);`; return e; };
+  W.strip = (x1, y1, x2, y2, o) => {
+    o = o || {}; const len = Math.hypot(x2 - x1, y2 - y1), a = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI, w = o.w || 10;
+    const e = el(o.parent || world, "strip " + (o.cls || ""));
+    e.style.cssText += `width:${len}px;height:${w}px;transform:translate3d(${x1}px,${y1}px,${o.z || 4}px) rotateZ(${a}deg) translateY(${-w / 2}px);`;
+    return e;
+  };
+  W.grp = (x, y, z, cls, parent) => { const g = el(parent || world, "grp" + (cls ? " " + cls : "")); g.style.transform = `translate3d(${x || 0}px,${y || 0}px,${z || 0}px)`; return g; };
+  // A box: x,y is the centre of its footprint, z its base height; w along x, d along y, h upwards.
+  W.box = (o, parent) => {
+    const b = el(parent || world, "b" + (o.cls ? " " + o.cls : ""));
+    const w = o.w, d = o.d, h = o.h, c = o.c || "#6E52B5";
+    b._w = w; b._d = d; b._h = h; b._g = o.g == null ? 1 : o.g; b._p = { x: o.x || 0, y: o.y || 0, z: o.z || 0 };
+    const face = (fw, fh, t, bg, html) => { const f = el(b, "f", html || ""); f.style.cssText += `width:${fw}px;height:${fh}px;transform:${t};background:${bg};`; return f; };
+    b.top = face(w, d, `translate3d(0,0,${h}px)`, o.ct || shade(c, .25), o.top);
+    b.front = face(w, h, `translate3d(0,${d}px,${h}px) rotateX(-90deg)`, o.cf || c, o.front);
+    face(w, h, `translate3d(${w}px,0,${h}px) rotateZ(180deg) rotateX(-90deg)`, shade(c, -.3));
+    face(d, h, `translate3d(${w}px,${d}px,${h}px) rotateZ(-90deg) rotateX(-90deg)`, shade(c, -.2));
+    face(d, h, `translate3d(0,0,${h}px) rotateZ(90deg) rotateX(-90deg)`, shade(c, -.12));
+    place(b); return b;
+  };
+  W.bb = (o, parent) => { const e = el(parent || world, "bb" + (o.cls ? " " + o.cls : ""), `<div class="in">${o.html || ""}</div>`); e.style.setProperty("--p", `translate3d(${o.x || 0}px,${o.y || 0}px,${o.z || 0}px)`); e.in = e.firstChild; return e; };
+  W.show = (e, on) => { e.classList.toggle("hide", !on); };
+  W.grow = (b, g) => { b._g = Math.max(g, 0.001); place(b); };
+  W.put = (b, x, y, z) => { if (b._anim) { b._anim.cancel(); b._anim = null; } b._p = { x, y, z }; place(b); };
+  // Move a box through a list of [x,y,z] points. The last point is where it ends up.
+  W.fly = (b, pts, dur, animate, delay) => {
+    if (b._anim) { b._anim.cancel(); b._anim = null; }
+    const from = b._p, P = pts.map((p) => ({ x: p[0], y: p[1], z: p[2] }));
+    b._p = P[P.length - 1]; b.classList.add("nt"); place(b);
+    if (animate && b.animate) {
+      b._anim = b.animate([from].concat(P).map((p) => ({ transform: tf(b, p) })), { duration: T(dur), delay: T(delay || 0), easing: "ease-in-out", fill: "backwards" });
+      anims.push(b._anim);
+    }
+  };
+  W.later = (fn, ms) => { timers.push(setTimeout(fn, T(ms))); };
+  W.clear = () => { timers.splice(0).forEach(clearTimeout); };
+  W.dispose = () => { W.clear(); anims.splice(0).forEach((a) => { try { a.cancel(); } catch (e) {} }); };
+
+  // ready-made objects
+  W.person = (x, y, c, name, parent, z) => {
+    const g = W.grp(x, y, z || 0, "", parent);
+    W.box({ w: 32, d: 20, h: 54, c }, g);
+    W.box({ z: 56, w: 24, d: 20, h: 24, c: "#E3B08A" }, g);
+    if (name) g.lab = W.bb({ z: 96, html: `<span class="lab">${name}</span>` }, g);
+    return g;
+  };
+  W.phone = (x, y, o, parent) => {
+    o = o || {}; const w = o.w || 100, h = o.h || 166, d = o.d || 12;
+    const b = W.box({ x, y, z: o.z || 0, w, d, h, c: "#241C3B", front: `<div class="scr${o.big ? " big" : ""}"></div>` }, parent);
+    b.scr = b.front.firstChild; return b;
+  };
+  W.tower = (x, y, parent, z) => {
+    const g = W.grp(x, y, z || 0, "", parent);
+    W.box({ w: 40, d: 40, h: 8, c: "#B9B3CF" }, g);
+    W.box({ z: 8, w: 10, d: 10, h: 186, c: "#8E88A6" }, g);
+    W.box({ z: 120, w: 50, d: 6, h: 6, c: "#8E88A6" }, g);
+    W.box({ z: 156, w: 50, d: 6, h: 6, c: "#8E88A6" }, g);
+    W.box({ x: -25, z: 146, w: 10, d: 5, h: 34, c: "#D4CFE4" }, g);
+    W.box({ x: 25, z: 146, w: 10, d: 5, h: 34, c: "#D4CFE4" }, g);
+    W.bb({ z: 205, html: `<div class="rings"><i></i><i></i><i></i></div>` }, g);
+    return g;
+  };
+  W.servers = (x, y, label, parent, z) => {
+    const g = W.grp(x, y, z || 0, "", parent);
+    W.box({ w: 240, d: 110, h: 10, c: "#CFC4EC" }, g);
+    [-76, 0, 76].forEach((dx) => W.box({ x: dx, z: 10, w: 58, d: 52, h: 120, c: "#2B2347", front: `<div class="rack"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>` }, g));
+    if (label) g.lab = W.bb({ z: 146, html: `<span class="lab big">${label}</span>` }, g);
+    return g;
+  };
+  W.laptop = (x, y, o, parent) => {
+    o = o || {}; const g = W.grp(x, y, o.z || 0, "", parent);
+    W.box({ y: 30, w: 110, d: 70, h: 6, c: "#B9B3CF" }, g);
+    const s = W.box({ y: -6, z: 6, w: 110, d: 5, h: 72, c: "#3B3163", front: `<div class="scr" style="inset:5px"></div>` }, g);
+    g.scr = s.front.firstChild; return g;
+  };
+  W.router = (x, y, parent, z) => {
+    const g = W.grp(x, y, z || 0, "", parent);
+    W.box({ w: 64, d: 40, h: 12, c: "#EDEAF5" }, g);
+    W.box({ x: -22, z: 12, w: 4, d: 4, h: 36, c: "#3B3163" }, g); W.box({ x: 22, z: 12, w: 4, d: 4, h: 36, c: "#3B3163" }, g);
+    return g;
+  };
+  // A stack of labelled slabs: a database, a pile of files, layers of anything.
+  W.db = (x, y, labels, o, parent) => {
+    o = o || {}; const g = W.grp(x, y, o.z || 0, "", parent);
+    g.slabs = labels.map((t, k) => W.box({ z: k * 34, w: o.w || 130, d: o.d || 100, h: 28, c: o.c || "#C9761F", front: `<div class="ftxt" style="font-size:${o.fs || 18}px">${t}</div>` }, g));
+    return g;
+  };
+  // A signboard on a pole. Text goes on the front. pole: 0 puts the board on the ground.
+  W.board = (x, y, html, o, parent) => {
+    o = o || {}; const w = o.w || 230, h = o.h || 62, pole = o.pole == null ? 96 : o.pole, g = W.grp(x, y, o.z || 0, "", parent);
+    if (pole) W.box({ w: 10, d: 10, h: pole, c: "#8E88A6" }, g);
+    g.face = W.box({ z: pole, w, d: 12, h, c: o.c || "#4B2E83", front: `<div class="ftxt" style="font-size:${o.fs || 22}px">${html}</div>` }, g);
+    g.txt = g.face.front.firstChild; return g;
+  };
+  W.moveGrp = (g, x, y, z) => { g.style.transform = `translate3d(${x || 0}px,${y || 0}px,${z || 0}px)`; g._x = x || 0; g._y = y || 0; g._z = z || 0; };
+
+  // ---------- Python with the cover off: the OOP pieces ----------
+  // A CLASS is a cabinet: a name block on top, one drawer per method on its front.
+  //   o = { name: "class BankAccount", drawers: ["__init__", "deposit", "balance"], w, d, dh, c, z }
+  // Stack a child on its parent with z: parent.top. Methods are looked up from the child down.
+  //   g.at(m) -> [x, y, z] just in front of drawer m (for W.fly);  g.open(m, on);  g.mark(m, "hit" | "bad" | "ghost" | "warn" | "");
+  //   g.top -> height of the top of the name block;  g.dr[m] -> the drawer block;  g.head -> the name block;  g.reset()
+  W.cabinet = (x, y, o, parent) => {
+    const z0 = o.z || 0, g = W.grp(x, y, z0, "cab", parent);
+    g._x = x; g._y = y; g._z = z0;
+    const w = o.w || 250, d = o.d || 90, dh = o.dh || 38, gap = 8, list = o.drawers || [], n = list.length;
+    const bodyH = n ? n * (dh + gap) + gap : 16, c = o.c || "#036672", hh = o.hh || 48;
+    W.box({ w, d, h: bodyH, c: o.body || "#CFE9E6" }, g);
+    g.head = W.box({ z: bodyH, w: w + 12, d: d + 8, h: hh, c, front: `<div class="ftxt cabname" style="font-size:${o.fs || 21}px">${o.name}</div>` }, g);
+    g.top = z0 + bodyH + hh; g.dr = {}; g._dz = {}; g._shut = {};
+    const dd = 26, shut = d / 2 - dd / 2 + 10;
+    list.forEach((m, i) => {
+      const dz = bodyH - (i + 1) * (dh + gap);
+      const b = W.box({ y: shut, z: dz, w: w - 26, d: dd, h: dh, c: "#F7FCFB", cls: "drw", front: `<div class="ftxt dark mono" style="font-size:${o.dfs || 19}px">${m}</div>` }, g);
+      g.dr[m] = b; g._dz[m] = dz; g._shut[m] = shut;
+    });
+    g.at = (m) => [g._x, g._y + shut + dd / 2 + 26, g._z + (g._dz[m] == null ? bodyH : g._dz[m]) + dh / 2 - 12];
+    g.open = (m, on) => { if (g.dr[m]) W.put(g.dr[m], 0, g._shut[m] + (on ? 30 : 0), g._dz[m]); };
+    g.mark = (m, cls) => { const b = g.dr[m]; if (!b) return; ["hit", "bad", "ghost", "warn"].forEach((k) => b.classList.toggle(k, k === cls)); };
+    g.reset = () => list.forEach((m) => { g.open(m, false); g.mark(m, ""); });
+    return g;
+  };
+  // An OBJECT is a glass box you can see into, with one slot per attribute: name on the left, value on the right.
+  //   o = { title: "s", slots: [["owner", '"Ali"'], ["_balance", "10000"]], w, d, sh, kw, z }
+  //   g.set(key, html, cls) changes a value ("hit" flashes green, "bad" red);  g.showSlot(key, on) shows or hides one slot
+  //   g.at() -> [x, y, z] at the middle of the box front;  g.lab -> the title label
+  W.obj = (x, y, o, parent) => {
+    const z0 = o.z || 0, g = W.grp(x, y, z0, "obj", parent);
+    g._x = x; g._y = y; g._z = z0;
+    const slots = o.slots || [], n = Math.max(1, slots.length), sh = o.sh || 38, w = o.w || 320, d = o.d || 96, kw = o.kw || 0.5;
+    const h = o.h || n * (sh + 10) + 18;
+    W.box({ w: w + 20, d: d + 20, h: 8, c: "#9CCFC9" }, g);
+    W.box({ z: 8, w, d, h, c: "#0A8F8A", cls: "glass" }, g);
+    g.k = {}; g.v = {}; g._h = h + 8;
+    slots.forEach((s, i) => {
+      const z = 8 + h - (i + 1) * (sh + 10), kW = Math.round((w - 30) * kw), vW = w - 30 - kW;
+      g.k[s[0]] = W.box({ x: -w / 2 + 10 + kW / 2, y: d / 2 - 30, z, w: kW, d: 22, h: sh, c: "#036672", front: `<div class="ftxt mono" style="font-size:${o.kfs || 18}px">${s[0]}</div>` }, g);
+      g.v[s[0]] = W.box({ x: w / 2 - 10 - vW / 2, y: d / 2 - 30, z, w: vW, d: 22, h: sh, c: "#FFFFFF", cls: "val", front: `<div class="ftxt dark mono" style="font-size:${o.vfs || 19}px">${s[1]}</div>` }, g);
+    });
+    g.set = (key, html, cls) => { const b = g.v[key]; if (!b) return; b.front.firstChild.innerHTML = html; ["hit", "bad"].forEach((k) => b.classList.toggle(k, k === cls)); };
+    g.showSlot = (key, on) => { if (g.k[key]) { W.show(g.k[key], on); W.show(g.v[key], on); } };
+    g.at = () => [g._x, g._y + d / 2 + 30, g._z + 8 + h / 2];
+    if (o.title) g.lab = W.bb({ z: h + 24, html: `<span class="lab big mono">${o.title}</span>` }, g);
+    return g;
+  };
+  // A VARIABLE NAME is a tag on a post. It names an object through a string on the ground (W.arrow).
+  W.tag = (x, y, text, parent, o) => {
+    o = o || {}; const g = W.grp(x, y, 0, "", parent); g._x = x; g._y = y;
+    W.box({ w: 8, d: 8, h: o.post || 60, c: "#7FA9A5" }, g);
+    g.face = W.box({ z: o.post || 60, w: o.w || 80, d: 14, h: 46, c: o.c || "#C9761F", front: `<div class="ftxt mono" style="font-size:${o.fs || 26}px">${text}</div>` }, g);
+    return g;
+  };
+  // A string from (x1,y1) to (x2,y2) on the ground, with an arrowhead at the far end. a.to(x1, y1, x2, y2) re-points it (it swings there).
+  W.arrow = (x1, y1, x2, y2, o) => {
+    o = o || {}; const line = el(o.parent || world, "strip ref" + (o.cls ? " " + o.cls : "")), head = el(o.parent || world, "ahead" + (o.cls ? " " + o.cls : ""));
+    const wd = o.w || 8, z = o.z || 5;
+    const a = { line, head };
+    a.to = (ax, ay, bx, by) => {
+      const ang = Math.atan2(by - ay, bx - ax), len = Math.max(0, Math.hypot(bx - ax, by - ay) - 22);
+      line.style.width = len + "px"; line.style.height = wd + "px";
+      line.style.transform = `translate3d(${ax}px,${ay}px,${z}px) rotateZ(${ang * 180 / Math.PI}deg) translateY(${-wd / 2}px)`;
+      head.style.transform = `translate3d(${bx}px,${by}px,${z + 1}px) rotateZ(${ang * 180 / Math.PI}deg)`;
+      a.p = [ax, ay, bx, by];
+    };
+    a.to(x1, y1, x2, y2);
+    return a;
+  };
+  // A METHOD CALL is a glowing ball carrying the request. Move it with W.fly(ball, points, ms, fwd, delay).
+  //   ball.say(html) sets the label riding on it, e.g. "deposit(500)".
+  W.ball = (o) => {
+    o = o || {}; const b = W.box({ w: 30, d: 30, h: 30, c: o.c || "#F2B33D", cls: "ball nt hide" });
+    const lab = W.bb({ x: 15, y: 15, z: 40, html: "" }, b);
+    b.say = (html) => { lab.in.innerHTML = html ? `<span class="pk call">${html}</span>` : ""; };
+    if (o.label) b.say(o.label);
+    return b;
+  };
+  // A red burst with Python's exact error text, at a point in the world.
+  W.burst = (x, y, z, text, parent) => W.bb({ x, y, z, cls: "hide burst", html: `<span class="say bad err">${text}</span>` }, parent);
+  return W;
+}
+// Add lecture-only CSS from a lecture file.
+function css(text) { const s = document.createElement("style"); s.textContent = text; document.head.appendChild(s); }
+
+// ---------------- the code panel ----------------
+// A dark panel of Python drawn on top of the slide, with lines that light up as they run.
+//   const c = code(root, `class A:\n    pass`, { x: 64, y: 128, w: 520, fs: 18, title: "savings.py" });
+//   c.hl([3, 4])        light lines 3 and 4 (1-based); c.hl([]) clears that colour
+//   c.hl([5], "bad")    mark line 5 red; "good" marks green; "dim" greys lines out
+//   c.clear()           removes every mark;  c.line(5, "new text") replaces a line
+//   c.el is the panel element: W.show(c.el, on) hides or shows it
+// one pass, so a word inside a span this function just wrote is never coloured again
+const TOK = /(@\w+)|\b(class|def|return|if|elif|else|for|in|while|not|and|or|is|pass|raise|import|from|try|except|as|with|lambda|None|True|False|self|super)\b|\b(\d+(?:\.\d+)?)\b/g;
+function pyHTML(line) {
+  let h = esc(line), cm = "";
+  const ci = h.search(/#(?=(?:[^"']|"[^"]*"|'[^']*')*$)/);
+  if (ci >= 0) { cm = `<span class="cm">${h.slice(ci)}</span>`; h = h.slice(0, ci); }
+  const parts = h.split(/("[^"]*"|'[^']*')/);
+  h = parts.map((p, i) => (i % 2 ? `<span class="st">${p}</span>` : p.replace(TOK, (m, dec, kw, num) => `<span class="${dec ? "dec" : kw ? "kw" : "nm"}">${m}</span>`))).join("");
+  return h + cm;
+}
+function code(root, src, o) {
+  o = o || {};
+  const c = { el: el(root, "ov code" + (o.cls ? " " + o.cls : "")) };
+  c.el.style.cssText = `left:${o.x == null ? 64 : o.x}px;top:${o.y == null ? 128 : o.y}px;width:${o.w || 520}px;font-size:${o.fs || 18}px;` + (o.style || "");
+  if (o.title) el(c.el, "cttl", esc(o.title));
+  c.ln = src.replace(/\n$/, "").split("\n").map((t) => el(c.el, "ln", pyHTML(t) || " "));
+  c.hl = (nums, cls) => { cls = cls || "on"; c.ln.forEach((l, i) => l.classList.toggle(cls, (nums || []).includes(i + 1))); };
+  c.clear = () => c.ln.forEach((l) => l.classList.remove("on", "bad", "good", "dim"));
+  c.line = (n, t) => { if (c.ln[n - 1]) c.ln[n - 1].innerHTML = pyHTML(t) || " "; };
+  return c;
+}
+
+// ---------------- shared scene pieces ----------------
+const S = {};
+const VP = { x: 0, y: 112, w: 1280, h: 484 };
+
+// A sender, a tower, servers, a tower and a receiver. Used by the trace and by the solution.
+function route(W, cfg) {
+  W.ground(-280, -340, 2060, 660);
+  const R = {};
+  W.plate(40, 70, 340, 240, "city", cfg.cityA);
+  W.plate(1460, 70, 340, 240, "city", cfg.cityB);
+  W.plate(750, 60, 520, 60, "small", "The internet: cables and routers");
+  R.pa = W.person(-30, 70, "#4B2E83", cfg.nameA);
+  R.phA = W.phone(90, 80);
+  R.twA = W.tower(330, -110);
+  R.c1 = W.strip(330, -110, 520, -20); R.c2 = W.strip(520, -20, 750, -50);
+  R.c3 = W.strip(750, -50, 980, -20); R.c4 = W.strip(980, -20, 1170, -110);
+  W.box({ x: 520, y: -20, w: 46, d: 32, h: 16, c: "#EDEAF5" }); W.box({ x: 980, y: -20, w: 46, d: 32, h: 16, c: "#EDEAF5" });
+  R.srv = W.servers(750, -130, cfg.server);
+  R.twB = W.tower(1170, -110);
+  R.phB = W.phone(1410, 80);
+  R.pb = W.person(1530, 70, "#AC3B2A", cfg.nameB);
+  R.pk = W.box({ x: 90, y: 80, z: 168, w: 36, d: 26, h: 22, c: "#C9761F", cls: "nt hide" });
+  R.pkLab = W.bb({ x: 18, y: 13, z: 30, html: "" }, R.pk);
+  R.back = W.box({ x: 1410, y: 80, z: 168, w: 30, d: 22, h: 18, c: "#1976D2", cls: "nt hide" });
+  R.backLab = W.bb({ x: 15, y: 11, z: 26, html: `<span class="pk tick">✓✓</span>` }, R.back);
+  R.note = W.bb({ x: 965, y: -130, z: 120, cls: "hide", html: "" });
+  R.P = {
+    a: [90, 80, 184], ta: [330, -110, 206], taBase: [330, -110, 18], r1: [520, -20, 20], sFront: [750, -50, 20], sTop: [750, -130, 190],
+    r2: [980, -20, 20], tbBase: [1170, -110, 18], tb: [1170, -110, 206], b: [1410, 80, 184], bIn: [1410, 80, 130], aIn: [90, 80, 130]
+  };
+  R.cables = (on) => [R.c1, R.c2, R.c3, R.c4].forEach((c, i) => c.classList.toggle("on", on.includes(i + 1)));
+  R.cams = { all: { x: 750, y: -10, s: .6, py: 70 }, a: { x: 60, y: 60, s: 1.45, py: 110 }, air: { x: 210, y: -20, s: 1.15, py: 120 }, net: { x: 560, y: -50, s: .98, py: 100 },
+    srv: { x: 760, y: -90, s: 1.2, py: 120 }, net2: { x: 960, y: -50, s: .98, py: 100 }, b: { x: 1440, y: 60, s: 1.45, py: 110 } };
+  return R;
+}
+
+// ---------------- deck engine ----------------
+function run(DECK) {
+  let si = 0, step = 0, scene = null, slideEl = null, capEl = null;
+  function build(i) {
+    const sl = DECK.slides[i];
+    if (scene && scene.W) scene.W.dispose();
+    if (slideEl) slideEl.remove();
+    slideEl = el(stage, "slide " + (sl.type || ""));
+    capEl = null;
+    if (sl.type !== "cover") { el(slideEl, "kicker", esc(sl.k)); el(slideEl, "ttl", sl.t); }
+    scene = S[sl.scene](slideEl, sl);
+    if (!scene.nocap) capEl = el(slideEl, "cap empty", `<span class="txt"></span><span class="tags"></span>`);
+    el(slideEl, "foot", esc(DECK.foot)); el(slideEl, "ctr", "");
+  }
+  function render(fwd) {
+    const sl = DECK.slides[si], r = scene.go(step, fwd) || {};
+    if (capEl) {
+      capEl.className = "cap" + (r.cap ? "" : " empty") + (r.ck ? " " + r.ck : "");
+      capEl.querySelector(".txt").textContent = r.cap || "";
+      capEl.querySelector(".tags").innerHTML = tagsHTML(r.tags);
+    }
+    slideEl.querySelector(".ctr").textContent = (si + 1) + " / " + DECK.slides.length + (scene.n > 1 ? "  ·  step " + (step + 1) + "/" + scene.n : "");
+    document.getElementById("pos").textContent = `Slide ${si + 1} of ${DECK.slides.length}${scene.n > 1 ? `  ·  step ${step + 1} of ${scene.n}` : ""}`;
+    document.getElementById("jump").value = String(si);
+    document.getElementById("prev").disabled = si === 0 && step === 0;
+    document.getElementById("next").disabled = si === DECK.slides.length - 1 && step === scene.n - 1;
+    try { history.replaceState(null, "", "#s" + (si + 1)); } catch (e) {}
+  }
+  function goSlide(i, atEnd) {
+    if (i < 0 || i >= DECK.slides.length) return;
+    si = i; build(i); step = atEnd ? scene.n - 1 : 0;
+    render(false);
+  }
+  function next() { if (step < scene.n - 1) { step++; render(true); } else goSlide(si + 1, false); }
+  function prev() { if (step > 0) { step--; render(false); } else goSlide(si - 1, true); }
+
+  const jump = document.getElementById("jump");
+  DECK.slides.forEach((s, k) => { const o = document.createElement("option"); o.value = String(k); o.textContent = (k + 1) + ". " + s.t; jump.appendChild(o); });
+  jump.addEventListener("change", () => goSlide(+jump.value, false));
+  document.getElementById("next").addEventListener("click", next);
+  document.getElementById("prev").addEventListener("click", prev);
+  document.getElementById("again").addEventListener("click", () => goSlide(si, false));
+  document.getElementById("full").addEventListener("click", () => { const r = frame.requestFullscreen && frame.requestFullscreen(); if (r && r.catch) r.catch(() => {}); });
+  // the OOP decks are for students: no speaker notes, no notes button
+  document.addEventListener("keydown", (e) => {
+    if (e.target && (e.target.tagName === "SELECT" || e.target.tagName === "INPUT")) return;
+    if (["ArrowRight", "PageDown", " ", "Enter", "ArrowDown"].includes(e.key)) { e.preventDefault(); next(); }
+    else if (["ArrowLeft", "PageUp", "Backspace", "ArrowUp"].includes(e.key)) { e.preventDefault(); prev(); }
+    else if (e.key === "f" || e.key === "F") document.getElementById("full").click();
+    else if (e.key === "Home") goSlide(0, false);
+    else if (e.key === "End") goSlide(DECK.slides.length - 1, false);
+  });
+  stage.addEventListener("click", () => { if (document.fullscreenElement === frame && Date.now() - lastDrag > 350) next(); });
+  function fit() {
+    const full = document.fullscreenElement === frame;
+    const w = full ? window.innerWidth : frame.clientWidth;
+    // outside full screen, keep the slide and the button row inside the window together
+    // (a phone held sideways is wide but short, so the width alone would push the buttons off screen)
+    const ctl = document.querySelector(".controls");
+    const room = window.innerHeight - (ctl ? ctl.offsetHeight : 0) - 24;
+    const h = full ? window.innerHeight : Math.min(w * 720 / 1280, Math.max(room, 200));
+    const s = Math.min(w / 1280, h / 720);
+    stage.style.transform = `scale(${s})`;
+    stage.style.left = (w - 1280 * s) / 2 + "px";
+    if (full) stage.style.top = (h - 720 * s) / 2 + "px";
+    else { stage.style.top = "0px"; frame.style.height = 720 * s + "px"; }
+  }
+  window.addEventListener("resize", fit);
+  document.addEventListener("fullscreenchange", fit);
+  fit();
+  let start = 0;
+  try { const m = /^#s(\d+)$/.exec(location.hash); if (m) start = Math.min(DECK.slides.length - 1, Math.max(0, +m[1] - 1)); } catch (e) {}
+  goSlide(start, false);
+  window.__deck = { next, prev, goSlide, get pos() { return [si, step, scene.n]; }, count: DECK.slides.length };
+}
+
+return { World, S, VP, run, el, esc, shade, tagsHTML, T, css, code, pyHTML };
+})();
+</script>
+<script>
+// TITLE: OOP · Week 9 · Lecture 1 · One call, many behaviours (3D)
+(() => {
+"use strict";
+const { World, S, VP, el, esc, code, css } = window.OOP3D;
+
+css(`
+.grp.nt { transition: none !important; }
+.belt { position: absolute; inset: 0; background: repeating-linear-gradient(90deg, #5E8E8A 0 8px, #8FBDB8 8px 46px); }
+.mach { position: absolute; left: 0; right: 0; top: 0; height: 40px; display: flex; align-items: center; justify-content: center; color: #fff; font: 700 21px var(--f-mono); }
+.br .f { transition: background 400ms; }
+.br.hit .f { background: #A8EBD6 !important; }
+.br.bad .f { background: #F4C3BA !important; }
+.br.ghost .f { background: #E7EFEE !important; }
+.br.ghost .ftxt { color: #9BB3B0; }
+.nochg { position: absolute; z-index: 8; background: var(--green); color: #fff; font: 700 17px var(--f-body); padding: 4px 12px; border-radius: 999px; box-shadow: 0 3px 8px rgb(0 0 0 / .25); }
+.ptask { font-size: 18px; }
+.ptask .gap { height: 196px; }
+.ptask ol { margin-top: 4px; }
+`);
+
+// helpers: let a group (a glass object, a cabinet) be moved with W.put / W.fly like a block
+const flyable = (g) => { g._w = 0; g._d = 0; g._g = 1; g._p = { x: g._x || 0, y: g._y || 0, z: g._z || 0 }; g.classList.add("nt"); return g; };
+const putG = (W, g, p) => { W.put(g, p[0], p[1], p[2]); g._x = p[0]; g._y = p[1]; g._z = p[2]; };
+const flyG = (W, g, pts, ms, fwd, delay) => { W.fly(g, pts, ms, fwd, delay); const p = pts[pts.length - 1]; g._x = p[0]; g._y = p[1]; g._z = p[2]; };
+const later = (W, fwd, fn, ms) => { if (fwd) W.later(fn, ms); else fn(); };
+const lab = (W, x, y, z, html, cls, parent) => W.bb({ x, y, z, cls: "hide", html: `<span class="lab big ${cls || ""}">${html}</span>` }, parent);
+const showLines = (c, nums, on) => nums.forEach((n) => { c.ln[n - 1].style.display = on ? "" : "none"; });
+const markBr = (b, cls) => ["hit", "bad", "ghost"].forEach((k) => b.classList.toggle(k, k === cls));
+
+// the conveyor belt the objects ride on
+const belt = (W, x, w) => W.box({ x, y: 0, w, d: 120, h: 10, c: "#7FA9A5", top: `<div class="belt"></div>` });
+
+// ---------------------------------------------------------------- cover
+// One call ball fanning out to three different shape cabinets.
+S.cover = (root, sl) => {
+  el(root, "cv-bg");
+  el(root, "cv-text", `<div class="ck">${esc(sl.k)}</div><div class="ct">${sl.t}</div><div class="cs">${sl.sub}</div><div class="cb">${sl.badge}</div>`);
+  const W = World(root, { x: 560, y: 0, w: 720, h: 720 }, "clear");
+  const g = W.grp(0, 0, 0, "sway");
+  W.plate(0, 0, 640, 640, "disc", "", g);
+  const spots = [[-200, -70, "Circle"], [0, -170, "Rectangle"], [200, -70, "Triangle"]];
+  spots.forEach(([x, y, name]) => {
+    const cb = W.cabinet(x, y, { name, drawers: ["area"], w: 170, fs: 19, dfs: 21 }, g);
+    cb.open("area", true); cb.mark("area", "hit");
+    W.strip(0, 170, x, y + 90, { parent: g, cls: "on", w: 10 });
+    W.box({ x, y: y + 92, z: 18, w: 22, d: 22, h: 22, c: "#F2B33D", cls: "ball" }, g);
+  });
+  const b = W.box({ x: 0, y: 170, z: 40, w: 44, d: 44, h: 44, c: "#F2B33D", cls: "ball" }, g);
+  W.bb({ x: 22, y: 22, z: 56, html: `<span class="pk call">area()</span>` }, b);
+  W.cam({ rx: 58, rz: 0, s: .95, py: 190 }, true);
+  return { n: 1, W, nocap: true, go() { return {}; } };
+};
+
+// ---------------------------------------------------------------- the chain
+const CHAIN = `def area(shape):
+    if shape.kind == "circle":
+        return 3.14159 * shape.radius ** 2
+    elif shape.kind == "rectangle":
+        return shape.width * shape.height
+    elif shape.kind == "triangle":
+        return 0.5 * shape.base * shape.height`;
+
+// The if/elif chain as a machine: one branch per kind, outside every class.
+function machine(W, x, title, kinds, fs) {
+  const g = W.grp(x, 0, 0);
+  W.box({ w: 300, d: 170, h: 220, c: "#5B7275", front: `<div class="mach">${title}</div>` }, g);
+  g.rows = kinds.map((k, i) => W.box({ y: 102, z: 132 - i * 48, w: 276, d: 16, h: 40, c: "#F7FCFB", cls: "br",
+    front: `<div class="ftxt dark mono" style="font-size:${fs || 20}px">kind == "${k}"</div>` }, g));
+  return g;
+}
+
+S.chain = (root) => {
+  const W = World(root, VP);
+  W.ground(-720, -640, 1640, 860);
+  const c = code(root, CHAIN, { x: 40, y: 122, w: 530, fs: 17, title: "area.py" });
+  const wrong = el(root, "ov card red hide", `<h4>Three things wrong with it</h4><ol>
+    <li>The knowledge of how a circle works lives outside the Circle class. Week 6's lesson, broken.</li>
+    <li>Add a Hexagon and you must find and edit this function, wherever it is.</li>
+    <li>Forget one branch and the function silently returns None instead of an area.</li></ol>`);
+  wrong.style.cssText = "left:40px;top:130px;width:480px;font-size:20px;";
+  // the classes, far away at the back
+  W.plate(160, -500, 960, 200, "zone", "The classes");
+  const clsN = ["Circle", "Rectangle", "Triangle"];
+  const cabs = clsN.map((n, i) => W.cabinet(-160 + i * 320, -520, { name: "class " + n, drawers: ["__init__"], w: 250, fs: 21, dfs: 21 }));
+  belt(W, 0, 1500);
+  const M = machine(W, 0, "def area(shape)", ["circle", "rectangle", "triangle"], 21);
+  // the shapes: plain objects that carry a kind
+  const mk = (slots) => flyable(W.obj(-330, 0, { z: 10, slots, w: 250, kw: .36, kfs: 20, vfs: 20 }));
+  const OB = [
+    mk([["kind", '"circle"'], ["radius", "2"]]),
+    mk([["kind", '"rectangle"'], ["width", "3"], ["height", "4"]]),
+    mk([["kind", '"triangle"'], ["base", "3"], ["height", "4"]]),
+    mk([["kind", '"hexagon"'], ["side", "2"]])
+  ];
+  const RES = ["12.56636", "12", "6.0", "None"];
+  const ENTRY = [-340, 0, 10], MID = [0, 0, 10], EXIT = [330, 0, 10], FAR = [-760, 0, 10];
+  const res = lab(W, 330, 0, 235, "", "good mono");
+  const none = W.box({ x: 330, y: 150, z: 0, w: 110, d: 40, h: 50, c: "#AC3B2A", cls: "nt hide", front: `<div class="ftxt mono" style="font-size:24px">None</div>` });
+  const noMatch = lab(W, 0, 0, 262, "no branch matches", "bad");
+  // on the wide view, labels are drawn larger so they stay readable
+  const big = (x, y, z, t, cls) => W.bb({ x, y, z, cls: "hide", html: `<span class="lab big ${cls}" style="font-size:32px">${t}</span>` });
+  const outside = big(0, 0, 262, "area(): outside every class", "");
+  const badges = [big(-160, -520, 140, "1", "bad"), big(-200, 0, 200, "2", "bad"), big(220, 150, 20, "3", "bad")];
+  const job = big(0, 0, 262, "a class is doing someone else's job", "warn");
+  const caps = [
+    `You need the area of each shape in a list. Without today's idea, you write this. It sits far away from the classes it is asking about.`,
+    `Watch a circle ride in. kind == "circle" is True, so it returns 3.14159 * 2 ** 2: 12.56636. The sizes are an example.`,
+    `A rectangle. The first test fails, the second matches: 3 * 4 = 12.`,
+    `A triangle. Two tests fail, the third matches: 0.5 * 3 * 4 = 6.0.`,
+    `Now a Hexagon arrives. No branch matches, so the function runs off its end and silently returns None instead of an area.`,
+    `Three things wrong with it. Every new shape means editing this function, and it sits far away from the classes it is asking about.`,
+    `Whenever you see a long chain asking "what kind of thing is this?", a class is doing someone else's job.`
+  ];
+  const HL = [[1], [1, 2, 3], [1, 2, 4, 5], [1, 2, 4, 6, 7], [1]];
+  return { n: 7, W, go(step, fwd) {
+    W.clear(); c.clear();
+    cabs.forEach((cb) => cb.reset());
+    const k = Math.min(step, 4);           // objects 0 .. k-1 have been through; object k-1 is at the exit
+    OB.forEach((o, i) => {
+      if (i === k - 1) {
+        W.show(o, true);
+        if (fwd && step === k) { putG(W, o, FAR); flyG(W, o, [ENTRY, MID, MID, EXIT], 3600, true, 200); }
+        else putG(W, o, EXIT);
+      } else if (i === 0 && step === 0) { W.show(o, true); putG(W, o, ENTRY); }
+      else { W.show(o, false); putG(W, o, FAR); }
+    });
+    if (k >= 1) res.style.setProperty("--p", `translate3d(330px,0px,${OB[k - 1]._h + 45}px)`);
+    // the branch rows
+    M.rows.forEach((r) => markBr(r, ""));
+    W.show(res, false); W.show(none, false); W.show(noMatch, false);
+    if (step >= 1 && step <= 3) {
+      const done = () => {
+        M.rows.forEach((r, i) => markBr(r, i < k - 1 ? "ghost" : i === k - 1 ? "hit" : ""));
+      };
+      later(W, fwd && step === k, done, 2000);
+      later(W, fwd && step === k, () => { res.in.innerHTML = `<span class="lab big good mono">returns ${RES[k - 1]}</span>`; W.show(res, true); }, 3900);
+    }
+    if (step >= 4) {
+      const miss = () => { M.rows.forEach((r) => markBr(r, "bad")); W.show(noMatch, step === 4); };
+      later(W, fwd && step === 4, miss, 2000);
+      const drop = () => { res.in.innerHTML = `<span class="lab big bad mono">returns None</span>`; W.show(res, true); W.show(none, true); };
+      if (fwd && step === 4) { W.put(none, 330, 150, 150); W.later(() => { W.show(none, true); W.fly(none, [[330, 150, 0]], 700, true, 0); }, 3900); W.later(drop, 3900); }
+      else { W.put(none, 330, 150, 0); drop(); }
+    }
+    // code panel and the card
+    W.show(c.el, step <= 4); W.show(wrong, step >= 5);
+    if (step <= 3) c.hl(HL[step]);
+    if (step === 4) { c.hl([1]); c.hl([2, 4, 6], "bad"); }
+    W.show(outside, step === 0);
+    badges.forEach((b) => W.show(b, step === 5));
+    W.show(job, step === 6);
+    if (step >= 5) cabs[0].mark("__init__", "warn");
+    if (step === 0 || step >= 5) W.cam({ x: 152, y: -180, s: .68, rz: 0, px: 280, py: 60 });
+    else W.cam({ x: 165, y: -10, s: .95, rz: 0, px: 275, py: 80 });
+    return { cap: caps[step], ck: step >= 4 && step <= 5 ? "bad" : step === 6 ? "warn" : "" };
+  } };
+};
+
+// ---------------------------------------------------------------- each class answers for itself
+const SHAPES = `class Circle:
+    def __init__(self, radius):
+        self.radius = radius
+    def area(self):
+        return 3.14159 * self.radius ** 2
+class Rectangle:
+    def __init__(self, width, height):
+        self.width = width
+        self.height = height
+    def area(self):
+        return self.width * self.height`;
+const TRI = `class Triangle:
+    def __init__(self, base, height):
+        self.base = base
+        self.height = height
+    def area(self):
+        return 0.5 * self.base * self.height`;
+const LOOP = `shapes = [Circle(2), Rectangle(3, 4)]
+shapes.append(Triangle(3, 4))
+for s in shapes:
+    print(s.area())
+# 12.56636
+# 12
+# 6.0`;
+
+S.poly = (root) => {
+  const W = World(root, VP);
+  W.ground(-640, -560, 1440, 860);
+  const cA = code(root, SHAPES, { x: 40, y: 120, w: 520, fs: 15, title: "shapes.py" });
+  const cT = code(root, TRI, { x: 40, y: 120, w: 520, fs: 15, title: "shapes.py · new class" });
+  const cL = code(root, LOOP, { x: 40, y: 396, w: 520, fs: 15, title: "the loop" });
+  const badge = el(root, "ov nochg hide", "not one line changed");
+  badge.style.cssText = "left:330px;top:392px;";
+  belt(W, 0, 1400);
+  const X = [-270, 0, 270];
+  const cabs = ["Circle", "Rectangle", "Triangle"].map((n, i) => flyable(W.cabinet(X[i], -330, { name: "class " + n, drawers: ["__init__", "area"], w: 230, fs: 22, dfs: 24 })));
+  const OB = [
+    W.obj(X[0], 0, { z: 10, slots: [["radius", "2"]], w: 200, kw: .55, kfs: 24, vfs: 24 }),
+    W.obj(X[1], 0, { z: 10, slots: [["width", "3"], ["height", "4"]], w: 200, kw: .55, kfs: 24, vfs: 24 }),
+    W.obj(X[2], 0, { z: 10, slots: [["base", "3"], ["height", "4"]], w: 200, kw: .55, kfs: 24, vfs: 24 })
+  ];
+  const OUT = ["12.56636", "12", "6.0"];
+  const outs = X.map((x, i) => lab(W, x, 60, OB[i]._h + 40, OUT[i], "good mono"));
+  const ball = W.ball();
+  const noIf = lab(W, 0, 0, 230, "no if · no kind attribute", "good");
+  // the call: object first, then up to its own class, then the area drawer
+  const path = (i) => [OB[i].at(), [X[i], 0, OB[i]._h + 70], [X[i], -200, 200], cabs[i].at("area")];
+  const visit = (i, fwd, delay) => {
+    ball.say("s.area()");
+    W.show(ball, true);
+    W.put(ball, X[i], 260, 40);
+    W.fly(ball, path(i), 2600, fwd, delay);
+    const hit = () => { cabs[i].open("area", true); cabs[i].mark("area", "hit"); W.show(outs[i], true); showLines(cL, [5 + i], true); };
+    later(W, fwd, hit, delay + 2700);
+  };
+  const caps = [
+    `Let each class answer for itself. The same conveyor, but the machine is gone: Circle and Rectangle each have their own area().`,
+    `The loop sends s.area() to the circle. Python looks in the object, then climbs to its own class, Circle. The area drawer runs: 12.56636.`,
+    `Next, the rectangle. The same call climbs to Rectangle's own area drawer: 12.`,
+    `No if. No kind attribute. The loop does not know or care what shape it is holding.`,
+    `Add a Triangle class with its own area(), and append one to the list. The loop: not one line changed. The sizes are an example.`,
+    `Run it again: 12.56636, 12, 6.0. The loop needed no change at all. Not one line.`
+  ];
+  return { n: 6, W, go(step, fwd) {
+    W.clear(); cA.clear(); cT.clear(); cL.clear();
+    cabs.forEach((cb) => cb.reset());
+    W.show(ball, false);
+    const tri = step >= 4;
+    W.show(cA.el, !tri); W.show(cT.el, tri);
+    cL.el.style.top = tri ? "312px" : "418px";
+    showLines(cL, [2, 7], tri);
+    showLines(cL, [5, 6, 7], false);
+    outs.forEach((o) => W.show(o, false));
+    W.show(cabs[2], tri); W.show(OB[2], tri);
+    if (step === 4 && fwd) { putG(W, cabs[2], [X[2], -330, 420]); flyG(W, cabs[2], [[X[2], -330, 0]], 1300, true, 200); }
+    else putG(W, cabs[2], [X[2], -330, 0]);
+    W.show(badge, step >= 4);
+    W.show(noIf, step === 3);
+    // what has already run
+    const shown = step === 2 ? [0] : step === 3 ? [0, 1] : [];
+    shown.forEach((i) => { cabs[i].open("area", true); cabs[i].mark("area", "hit"); W.show(outs[i], true); showLines(cL, [5 + i], true); });
+    if (step === 0) cA.hl([4, 5, 10, 11]);
+    if (step === 1) { visit(0, fwd, 300); cL.hl([3, 4]); cA.hl([4, 5]); }
+    if (step === 2) { visit(1, fwd, 300); cL.hl([3, 4]); cA.hl([10, 11]); }
+    if (step === 3) cL.hl([3, 4], "good");
+    if (step === 4) { cT.hl([1, 2, 3, 4, 5, 6], "good"); cL.hl([2], "good"); cL.hl([3, 4]); }
+    if (step === 5) {
+      cL.hl([3, 4], "good");
+      if (fwd) { visit(0, true, 300); W.later(() => visit(1, true, 0), 3200); W.later(() => visit(2, true, 0), 6100); }
+      else [0, 1, 2].forEach((i) => { cabs[i].open("area", true); cabs[i].mark("area", "hit"); W.show(outs[i], true); showLines(cL, [5 + i], true); });
+    }
+    if (step <= 3) W.cam({ x: -135, y: -130, s: .85, rz: 0, px: 300, py: 150 });
+    else W.cam({ x: 0, y: -130, s: .76, rz: 0, px: 300, py: 140 });
+    return { cap: caps[step], ck: step === 3 || step === 5 ? "good" : "" };
+  } };
+};
+
+// ---------------------------------------------------------------- overriding
+const FEES = `class Account:
+    def monthly_fee(self):
+        return 100
+class StudentAccount(Account):
+    def monthly_fee(self):
+        return 0
+class PremiumAccount(Account):
+    def monthly_fee(self):
+        return super().monthly_fee() + 500
+
+print(StudentAccount().monthly_fee())
+print(PremiumAccount().monthly_fee())`;
+
+S.over = (root) => {
+  const W = World(root, VP);
+  W.ground(-640, -380, 1280, 820);
+  const c = code(root, FEES, { x: 40, y: 120, w: 520, fs: 17, title: "fees.py" });
+  const out = code(root, "0\n600", { x: 40, y: 478, w: 520, fs: 17, cls: "out", title: "Output" });
+  const acc = W.cabinet(0, -60, { name: "class Account", drawers: ["monthly_fee"], w: 580, fs: 22, dfs: 22 });
+  const stu = W.cabinet(-150, -60, { name: "StudentAccount", drawers: ["monthly_fee"], w: 280, fs: 22, dfs: 22, z: acc.top, c: "#0A8F8A" });
+  const pre = W.cabinet(150, -60, { name: "PremiumAccount", drawers: ["monthly_fee"], w: 280, fs: 22, dfs: 22, z: acc.top, c: "#0A8F8A" });
+  const oS = W.obj(-170, 240, { w: 150, d: 60, h: 40, slots: [] });
+  const oP = W.obj(170, 240, { w: 150, d: 60, h: 40, slots: [] });
+  const tS = lab(W, -170, 240, 66, "StudentAccount()", "mono");
+  const tP = lab(W, 170, 240, 66, "PremiumAccount()", "mono");
+  [tS, tP].forEach((t) => t.classList.remove("hide"));
+  const ball = W.ball();
+  const r0 = lab(W, -150, -60, acc.top + 118, "returns 0", "good mono");
+  const r100 = lab(W, 200, 70, 6, "returns 100", "good mono");
+  const r600 = lab(W, 150, -60, acc.top + 118, "100 + 500 = 600", "good mono");
+  const never = lab(W, -200, 70, 6, "never reached", "warn");
+  const sub = [lab(W, -150, -60, acc.top + 118, "Week 7 Test 2 ✓", "good"), lab(W, 150, -60, acc.top + 118, "Week 7 Test 2 ✓", "good")];
+  const how = [lab(W, -150, -60, acc.top + 118, "replace", "warn"), lab(W, 150, -60, acc.top + 118, "extend with super()", "warn")];
+  const caps = [
+    `A subclass can replace a method it inherited. Same name, different behaviour. Account's monthly_fee returns 100.`,
+    `StudentAccount replaces the method entirely. Its own drawer is found first and returns 0. The parent's drawer is never reached.`,
+    `PremiumAccount extends it instead. Its drawer runs super().monthly_fee(): the call goes down to Account's drawer, which returns 100.`,
+    `The 100 comes back up and 500 is added. The fee is 600.`,
+    `Both subclasses can be used anywhere an Account is expected. That is Test 2 from Week 7, and here it passes: the substitution is honest.`,
+    `Replace with a new value, or extend with super(). Decide which one on purpose.`
+  ];
+  const showO = (n) => { out.ln.forEach((l, i) => { l.style.display = i < n ? "" : "none"; }); };
+  return { n: 6, W, go(step, fwd) {
+    W.clear(); c.clear(); out.clear();
+    [acc, stu, pre].forEach((cb) => cb.reset());
+    [r0, r100, r600, never, ...sub, ...how].forEach((x) => W.show(x, false));
+    W.show(ball, false);
+    showO(step >= 3 ? 2 : step >= 1 ? 1 : 0);
+    W.show(out.el, step >= 1);
+    if (step === 0) { c.hl([1, 2, 3]); acc.mark("monthly_fee", "hit"); }
+    if (step === 1) {
+      c.hl([4, 5, 6, 11]);
+      ball.say("monthly_fee()"); W.show(ball, true);
+      W.put(ball, -170, 380, 30);
+      W.fly(ball, [oS.at(), [-170, 240, 140], [-150, 60, acc.top + 120], stu.at("monthly_fee")], 2800, fwd, 300);
+      later(W, fwd, () => { stu.open("monthly_fee", true); stu.mark("monthly_fee", "hit"); acc.mark("monthly_fee", "ghost"); W.show(r0, true); W.show(never, true); }, 3200);
+    }
+    if (step >= 2 && step <= 3) {
+      c.hl(step === 2 ? [7, 8, 9, 1, 2, 3] : [9, 12]);
+      pre.open("monthly_fee", true); pre.mark("monthly_fee", "hit");
+      ball.say(step === 2 ? "super().monthly_fee()" : "100"); W.show(ball, true);
+      if (step === 2) {
+        W.put(ball, 170, 380, 30);
+        W.fly(ball, [oP.at(), [170, 240, 140], [150, 60, acc.top + 120], pre.at("monthly_fee"), pre.at("monthly_fee"), acc.at("monthly_fee")], 4200, fwd, 300);
+        later(W, fwd, () => { acc.open("monthly_fee", true); acc.mark("monthly_fee", "hit"); W.show(r100, true); }, 4600);
+      } else {
+        acc.mark("monthly_fee", "hit");
+        W.put(ball, ...acc.at("monthly_fee"));
+        W.fly(ball, [pre.at("monthly_fee")], 1500, fwd, 300);
+        later(W, fwd, () => { W.show(r600, true); ball.say("600"); }, 1900);
+      }
+    }
+    if (step >= 4) {
+      c.hl(step === 4 ? [4, 7] : [6, 9]);
+      stu.mark("monthly_fee", "hit"); pre.mark("monthly_fee", "hit");
+      if (step === 4) sub.forEach((s) => W.show(s, true));
+      else how.forEach((s) => W.show(s, true));
+    }
+    W.cam({ x: 30, y: 40, s: .98, rx: 58, rz: 0, px: 300, py: 75 });
+    return { cap: caps[step], ck: step === 3 || step === 4 ? "good" : step === 5 ? "warn" : "" };
+  } };
+};
+
+// ---------------------------------------------------------------- Problem 15
+const CHARGE = `def charge(vehicle, km):
+    if vehicle.kind == "bike":
+        return 30 * km
+    elif vehicle.kind == "rickshaw":
+        return 50 * km + 100
+    elif vehicle.kind == "van":
+        return 90 * km + 500`;
+const VEH = ["Bike", "Rickshaw", "Van", "Truck"];
+
+S.practice = (root) => {
+  const W = World(root, VP);
+  W.ground(-560, -360, 1120, 700);
+  el(root, "ov card ptask", `<h4>A delivery company charges differently for each vehicle. Here is the current code.</h4>
+    <div class="gap"></div>
+    <div class="lbl">Your task</div>
+    <ol><li>Rewrite it as three classes, each with its own charge(km)</li>
+    <li>Write a loop that prints the charge for a 12 km trip for all three</li>
+    <li>Then add a Truck class, and count how many existing lines you had to change</li></ol>
+    <div style="margin-top:8px">The third step is the real question. Write the number down before you start, then write what it actually turned out to be.</div>`).style.cssText = "left:40px;top:118px;width:600px;";
+  code(root, CHARGE, { x: 62, y: 190, w: 556, fs: 16, title: "charge.py" });
+  VEH.forEach((n, i) => {
+    const cb = W.cabinet(-300 + i * 200, -40, { name: n, drawers: ["charge"], w: 180, fs: 25, dfs: 26 });
+    if (n === "Truck") { cb.classList.add("dim"); cb.mark("charge", "ghost"); }
+  });
+  W.bb({ x: 300, y: -40, z: 130, html: `<span class="lab big warn" style="font-size:30px">Truck ?</span>` });
+  W.bb({ x: -60, y: -40, z: 200, html: `<span class="lab big warn" style="font-size:30px">existing lines changed: ?</span>` });
+  el(root, "timebar", "Time: 12 minutes. Pairs. Laptops open.");
+  W.cam({ x: 0, y: 0, s: .72, rz: 0, px: 320, py: 110 }, true);
+  return { n: 1, W, nocap: true, go() { return {}; } };
+};
+
+const SOL = `class Bike:
+    def charge(self, km):
+        return 30 * km
+class Rickshaw:
+    def charge(self, km):
+        return 50 * km + 100
+class Van:
+    def charge(self, km):
+        return 90 * km + 500
+class Truck:  # example numbers
+    def charge(self, km):
+        return 150 * km + 1000
+vehicles = [Bike(), Rickshaw(), Van()]
+vehicles.append(Truck())
+for v in vehicles:
+    print(v.charge(12))`;
+
+S.solution = (root) => {
+  const W = World(root, VP);
+  W.ground(-560, -420, 1120, 800);
+  const c = code(root, SOL, { x: 40, y: 120, w: 520, fs: 15, title: "delivery.py" });
+  const X = [-330, -110, 110, 330];
+  const cabs = VEH.map((n, i) => flyable(W.cabinet(X[i], -60, { name: n, drawers: ["charge"], w: 190, fs: 22, dfs: 22 })));
+  const OB = X.map((x) => W.obj(x, 170, { w: 130, slots: [] }));
+  const OUT = ["360", "700", "1580", "2800"];
+  const outs = X.map((x, i) => lab(W, x, -60, 150, OUT[i], "good mono"));
+  const ex = lab(W, 330, -60, 215, "example numbers", "warn");
+  const counter = W.board(0, -250, "existing lines changed: 0", { w: 460, h: 62, pole: 150, fs: 28, c: "#1B7F5A" });
+  const noParent = W.bb({ x: 40, y: -250, z: 200, cls: "hide", html: `<span class="lab big warn" style="font-size:28px">No parent class</span>` });
+  const noInh = W.bb({ x: 40, y: -250, z: 90, cls: "hide", html: `<span class="lab big good" style="font-size:28px">polymorphism without inheritance</span>` });
+  const ball = W.ball();
+  const visit = (i, fwd, delay) => {
+    W.show(ball, true); ball.say("v.charge(12)");
+    W.put(ball, X[i], 330, 40);
+    W.fly(ball, [OB[i].at(), [X[i], 170, 130], [X[i], 40, 150], cabs[i].at("charge")], 2400, fwd, delay);
+    later(W, fwd, () => { cabs[i].open("charge", true); cabs[i].mark("charge", "hit"); W.show(outs[i], true); }, delay + 2500);
+  };
+  const caps = [
+    `Each vehicle becomes a class with its own charge(km). Nothing else: no if, no kind.`,
+    `The loop sends v.charge(12) to a Bike. It climbs to Bike's own drawer: 30 * 12 = 360.`,
+    `Then the Rickshaw's own drawer: 50 * 12 + 100 = 700.`,
+    `Then the Van's: 90 * 12 + 500 = 1580.`,
+    `Adding a Truck means writing one new class. The loop is untouched. Zero existing lines changed. The Truck's numbers are an example.`,
+    `Run it: 360, 700, 1580, and the Truck's 150 * 12 + 1000 = 2800.`,
+    `Note what is missing. No parent class. These three share no code at all, only a method name. There is nothing to share.`,
+    `Polymorphism did not need inheritance here. That is next lecture. Compare with the chain: there, a Truck meant finding and editing a function somewhere else.`
+  ];
+  return { n: 8, W, go(step, fwd) {
+    W.clear(); c.clear();
+    cabs.forEach((cb) => cb.reset());
+    W.show(ball, false);
+    const truck = step >= 4;
+    showLines(c, [10, 11, 12, 14], truck);
+    W.show(cabs[3], truck); W.show(OB[3], truck); W.show(ex, truck && step <= 5);
+    if (step === 4 && fwd) { putG(W, cabs[3], [X[3], -60, 380]); flyG(W, cabs[3], [[X[3], -60, 0]], 1300, true, 200); }
+    else putG(W, cabs[3], [X[3], -60, 0]);
+    W.show(counter, truck && step <= 5);
+    W.show(noParent, step >= 6); W.show(noInh, step === 7);
+    outs.forEach((o) => W.show(o, false));
+    const done = (i) => { cabs[i].open("charge", true); cabs[i].mark("charge", "hit"); W.show(outs[i], true); };
+    const ran = step >= 1 && step <= 3 ? step - 1 : step === 4 ? 3 : step >= 5 ? 4 : 0;
+    for (let i = 0; i < ran; i++) done(i);
+    if (step >= 1 && step <= 3) visit(step - 1, fwd, 300);
+    if (step === 5) visit(3, fwd, 300);
+    if (step >= 6) cabs.forEach((cb) => cb.mark("charge", "hit"));
+    if (step === 0) c.hl([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    if (step >= 1 && step <= 3) c.hl([15, 16, 3 * step - 1, 3 * step]);
+    if (step === 4) { c.hl([10, 11, 12, 14], "good"); }
+    if (step === 5) c.hl([15, 16, 11, 12]);
+    if (step === 6) c.hl([1, 4, 7, 10]);
+    if (step === 7) c.hl([2, 5, 8, 11]);
+    W.cam(step >= 4 ? { x: 60, y: -20, s: .78, rz: 0, px: 310, py: 90 } : { x: -110, y: 0, s: .9, rz: 0, px: 300, py: 90 });
+    return { cap: caps[step], ck: step === 4 || step === 7 ? "good" : step === 6 ? "warn" : "" };
+  } };
+};
+
+window.OOP3D.run({
+  title: "OOP in Python · Week 9 · Lecture 1",
+  foot: "OOP in Python · Week 9 · Lecture 1",
+  slides: [
+    { type: "cover", scene: "cover", k: "WEEK 9 · LECTURE 1", t: "One call, many behaviours", sub: "Polymorphism: what the last eight weeks were building towards", badge: "OOP in Python · BS Computer Science" },
+    { scene: "chain", k: "WEEK 9 · LECTURE 1", t: "The chain that keeps growing" },
+    { scene: "poly", k: "WEEK 9 · LECTURE 1", t: "Let each class answer for itself" },
+    { scene: "over", k: "WEEK 9 · LECTURE 1", t: "Overriding: changing what you inherited" },
+    { type: "practice", scene: "practice", k: "PRACTICE", t: "Problem 15 · Kill the chain" },
+    { type: "solution", scene: "solution", k: "SOLUTION", t: "Problem 15 · Zero lines changed" }
+  ]
+});
+})();
+</script>
+</body>
+</html>
