@@ -1,0 +1,988 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OOP · Week 7 · Lecture 1 · Building on another class (3D)</title>
+<!--
+  OOP · Week 7 · Lecture 1 · Building on another class (3D)
+  One file, no internet needed. Open in Chrome or Edge.
+  Keys: Right / Space = next step, Left = back, F = full screen.
+  Drag any 3D scene with the mouse to look at it from another side.
+  Built from src/w7l1.js by src/build.py. Edit the source, not this file.
+-->
+<style>
+:root {
+  --page: #E4F1F1; --stage: #FFFFFF; --ink: #10292C; --muted: #5B7275;
+  --vio: #0A8F8A; --vio-d: #036672; --tint: #E1F3F1; --tint2: #F3FAF9; --line: #C5E5E2;
+  --amber: #C9761F; --amber-t: #FCEEDD; --green: #1B7F5A; --green-t: #E1F3E9; --red: #AC3B2A; --red-t: #FBE8E5;
+  --device: #4B2E83; --software: #6E52B5; --network: #1B7F5A; --data: #C9761F; --people: #AC3B2A;
+  --f-head: Cambria, "Source Serif 4", Georgia, serif;
+  --f-body: Calibri, "Segoe UI", Inter, system-ui, sans-serif;
+  --f-mono: "Courier New", Consolas, monospace;
+  --move: 1200ms;
+  --ease: cubic-bezier(.45,.05,.25,1);
+  --ui-bg: #FFFFFF; --ui-fg: #10292C; --ui-line: #BBDAD7;
+}
+@media (prefers-reduced-motion: reduce) { :root { --move: 1ms; } }
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--page); color: var(--ui-fg); font-family: var(--f-body); }
+.shell { max-width: 1400px; margin: 0 auto; padding: 14px 16px 28px; display: grid; gap: 10px; }
+.frame { position: relative; width: 100%; overflow: hidden; border-radius: 10px; box-shadow: 0 6px 28px rgb(5 60 62 / .22); background: var(--stage); }
+.frame:fullscreen { background: #061D20; border-radius: 0; }
+.stage { position: absolute; left: 0; top: 0; width: 1280px; height: 720px; transform-origin: 0 0; background: var(--stage); overflow: hidden; color: var(--ink); }
+.slide { position: absolute; inset: 0; }
+
+/* slide chrome */
+.kicker { position: absolute; left: 64px; top: 28px; font: 700 14px var(--f-body); letter-spacing: .14em; text-transform: uppercase; color: var(--vio); z-index: 5; }
+.slide.practice .kicker { color: var(--amber); }
+.slide.solution .kicker { color: var(--green); }
+.ttl { position: absolute; left: 64px; top: 50px; right: 64px; font: 700 38px/1.15 var(--f-head); color: var(--vio-d); z-index: 5; }
+.slide.practice .ttl { color: var(--amber); }
+.slide.solution .ttl { color: var(--green); }
+.cap { position: absolute; left: 64px; right: 64px; top: 602px; height: 70px; border-radius: 10px; background: var(--tint); padding: 0 20px; display: flex; align-items: center; gap: 14px; z-index: 6;
+  font: 500 20px/1.3 var(--f-body); color: var(--ink); transition: background 400ms, opacity 300ms; }
+.cap.empty { opacity: 0; }
+.cap .txt { flex: 1; }
+.cap .tags { display: flex; gap: 8px; flex: none; }
+.cap.good { background: var(--green-t); } .cap.warn { background: var(--amber-t); } .cap.bad { background: var(--red-t); }
+.tag { display: inline-block; padding: 5px 13px; border-radius: 999px; color: #fff; font: 700 15px var(--f-body); letter-spacing: .03em; animation: pop 450ms ease-out; white-space: nowrap; }
+.t-device { background: var(--device); } .t-software { background: var(--software); } .t-network { background: var(--network); } .t-data { background: var(--data); } .t-people { background: var(--people); }
+@keyframes pop { 0% { transform: scale(.4); opacity: 0; } 60% { transform: scale(1.12); } 100% { transform: scale(1); opacity: 1; } }
+.foot { position: absolute; left: 64px; top: 688px; font: 13px var(--f-body); color: var(--muted); z-index: 6; }
+.ctr { position: absolute; right: 64px; top: 688px; font: 700 12px var(--f-mono); color: var(--muted); z-index: 6; }
+.timebar { position: absolute; left: 64px; right: 64px; top: 602px; height: 70px; border-radius: 10px; background: var(--amber-t); color: var(--amber); font: 700 21px var(--f-body); display: flex; align-items: center; padding: 0 22px; z-index: 6; }
+
+/* 3D world */
+.vp { position: absolute; overflow: hidden; perspective: 2000px; perspective-origin: 50% 40%; background: linear-gradient(#FFFFFF, var(--tint2) 50%, #DDEFED); cursor: grab; touch-action: none; }
+.vp.clear { background: none; }
+.vp:active { cursor: grabbing; }
+.world { position: absolute; left: 50%; top: 50%; width: 0; height: 0; transform-style: preserve-3d; transition: transform var(--move) var(--ease); }
+.world.nt, .world.nt .bb { transition: none !important; }
+.b, .grp { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-style: preserve-3d; transition: transform var(--move) var(--ease); }
+.b.nt { transition: none; }
+.f { position: absolute; left: 0; top: 0; transform-origin: 0 0; overflow: hidden; transition: opacity 500ms, filter 500ms; }
+.hide .f, .hide .bb, .bb.hide { opacity: 0; }
+.dim .f { filter: grayscale(1) brightness(1.3); opacity: .45; }
+.dim .bb { opacity: .25; }
+.ground { position: absolute; left: 0; top: 0; border-radius: 40px; background-color: #EEF7F6;
+  background-image: linear-gradient(#D2E9E6 2px, transparent 2px), linear-gradient(90deg, #D2E9E6 2px, transparent 2px); background-size: 80px 80px; box-shadow: 0 0 0 4px #C8E3E0; }
+.plate { position: absolute; left: 0; top: 0; border-radius: 20px; display: flex; align-items: flex-end; justify-content: center; padding: 12px; text-align: center;
+  font: 800 22px var(--f-body); letter-spacing: .14em; text-transform: uppercase; color: var(--vio-d); transition: opacity 500ms; }
+.plate.city { background: #DCEFEC; border: 3px dashed #93CEC7; }
+.plate.zone { background: #FFFFFF; border: 3px solid #C8E3E0; }
+.plate.disc { border-radius: 50%; background: radial-gradient(#3FB8AE, #036672 70%); box-shadow: 0 0 0 10px rgb(255 255 255 / .12); }
+.plate.small { font-size: 16px; letter-spacing: .06em; align-items: center; }
+.plate.hide { opacity: 0; }
+.strip { position: absolute; left: 0; top: 0; transform-origin: 0 0; border-radius: 5px; background: #B4DAD5; }
+.strip.on { background: repeating-linear-gradient(90deg, var(--network) 0 16px, #A6E2C9 16px 28px); background-size: 28px 100%; animation: flow .7s linear infinite; }
+.strip.lane { background: #CDE7E4; }
+@keyframes flow { to { background-position: 28px 0; } }
+.bb { position: absolute; left: 0; top: 0; width: 0; height: 0; transform: var(--p) rotateZ(calc(var(--rz) * -1)) rotateX(calc(var(--rx) * -1)); transition: transform var(--move) var(--ease), opacity 400ms; }
+.bb > .in { position: absolute; left: 0; bottom: 0; transform: translateX(-50%); white-space: nowrap; }
+.lab { display: inline-block; background: #fff; border: 2px solid var(--vio); color: var(--vio-d); font: 700 19px var(--f-body); padding: 3px 12px; border-radius: 999px; box-shadow: 0 3px 8px rgb(5 60 62 / .18); }
+.lab.big { font-size: 23px; padding: 5px 15px; }
+.lab.good { border-color: var(--green); color: var(--green); } .lab.bad { border-color: var(--red); color: var(--red); } .lab.warn { border-color: var(--amber); color: var(--amber); }
+.pk { display: inline-block; background: var(--data); color: #fff; font: 700 16px var(--f-mono); padding: 4px 10px; border-radius: 8px; box-shadow: 0 3px 8px rgb(0 0 0 / .25); }
+.pk.lock { background: #241C3B; } .pk.tick { background: #1976D2; } .pk.sms { background: var(--network); }
+.say { display: inline-block; white-space: normal; width: 250px; background: #fff; border-left: 6px solid var(--vio); border-radius: 10px; padding: 9px 13px; font: 600 16px/1.3 var(--f-body); color: var(--ink); box-shadow: 0 4px 12px rgb(5 60 62 / .2); text-align: left; }
+.say i { display: block; font-weight: 400; color: var(--muted); margin-top: 3px; }
+.say.good { border-color: var(--green); } .say.bad { border-color: var(--red); } .say.warn { border-color: var(--amber); }
+.rings { position: relative; width: 0; height: 0; }
+.rings i { position: absolute; left: -36px; top: -36px; width: 72px; height: 72px; border: 4px solid var(--network); border-radius: 50%; opacity: 0; }
+.on .rings i { animation: ring 1.8s ease-out infinite; }
+.on .rings i:nth-child(2) { animation-delay: .6s; } .on .rings i:nth-child(3) { animation-delay: 1.2s; }
+@keyframes ring { 0% { transform: scale(.2); opacity: .95; } 100% { transform: scale(1.9); opacity: 0; } }
+
+/* faces with content */
+.ftxt { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; color: #fff; font: 700 20px var(--f-body); padding: 2px 6px; }
+.ftxt.word { font: 700 46px var(--f-head); }
+.ftxt.ped { font: 800 25px var(--f-body); letter-spacing: .04em; justify-content: flex-start; padding-left: 14px; gap: 10px; }
+.ftxt.ped b { display: inline-flex; width: 30px; height: 30px; border-radius: 50%; background: #fff; align-items: center; justify-content: center; font-size: 18px; }
+.ftxt.dark { color: var(--ink); }
+.ftxt.q { font: 800 54px var(--f-head); }
+.scr { position: absolute; inset: 8px 6px; border-radius: 7px; background: #F1EDFA; display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; padding: 6px; font: 700 14px/1.25 var(--f-body); color: var(--ink); }
+.scr.big { inset: 16px 12px; border-radius: 14px; padding: 14px; gap: 10px; font-size: 25px; }
+.bub { align-self: flex-end; background: #D5F5C6; border-radius: 8px; padding: 3px 7px; max-width: 100%; }
+.bub.in { align-self: flex-start; background: #fff; }
+.bub.sys { align-self: stretch; background: #fff; border: 1px solid var(--line); text-align: center; }
+.tk { color: #8C87A0; font-weight: 800; } .tk.blue { color: #1976D2; }
+.dots { align-self: flex-start; background: #fff; border-radius: 8px; padding: 3px 9px; letter-spacing: .15em; animation: blink 1.2s infinite; }
+.rack { position: absolute; inset: 7px; display: grid; grid-template-rows: repeat(8, 1fr); gap: 4px; }
+.rack i { background: #3B3163; border-radius: 2px; position: relative; }
+.rack i::after { content: ""; position: absolute; right: 5px; top: 50%; width: 5px; height: 5px; margin-top: -2.5px; border-radius: 50%; background: #7CF2B0; animation: blink 1.4s infinite; }
+.rack i:nth-child(2n)::after { animation-delay: .5s; } .rack i:nth-child(3n)::after { animation-delay: .9s; background: #FFD27A; }
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+.sway { animation: sway 7s ease-in-out infinite alternate; }
+@keyframes sway { from { transform: rotateZ(-30deg); } to { transform: rotateZ(30deg); } }
+
+/* cover */
+.cv-bg { position: absolute; inset: 0; background: radial-gradient(1200px 700px at 78% 60%, #13A39B, #036672 55%, #02343A); }
+.cv-text { position: absolute; left: 64px; top: 150px; width: 560px; color: #fff; z-index: 5; }
+.cv-text .ck { font: 700 16px var(--f-body); letter-spacing: .16em; color: #C5ECE7; }
+.cv-text .ct { font: 700 68px/1.05 var(--f-head); margin-top: 14px; }
+.cv-text .cs { font: 400 26px/1.3 var(--f-body); color: #E0F5F2; margin-top: 18px; }
+.cv-text .cb { display: inline-block; margin-top: 34px; padding: 9px 16px; border-radius: 999px; background: rgb(255 255 255 / .14); font: 600 16px var(--f-body); color: #fff; }
+.slide.cover .foot, .slide.cover .ctr { color: #A9DCD5; }
+
+/* 2D overlays */
+.ov { position: absolute; z-index: 7; transition: opacity 500ms, transform 500ms; }
+.ov.hide { opacity: 0; transform: translateY(14px); pointer-events: none; }
+.veil { background: rgb(255 255 255 / .86); }
+.card { border-radius: 14px; background: #fff; padding: 18px 22px; box-shadow: 0 6px 22px rgb(5 60 62 / .16); font: 400 19px/1.4 var(--f-body); color: var(--ink); }
+.card h4 { margin: 0 0 6px; font: 700 22px/1.2 var(--f-body); color: var(--vio-d); }
+.card.red { background: var(--red-t); } .card.red h4 { color: var(--red); }
+.card.amber { background: var(--amber-t); } .card.amber h4 { color: var(--amber); }
+.card ol { margin: 6px 0 0; padding-left: 24px; } .card li { margin: 5px 0; }
+.card .lbl { font: 700 13px var(--f-body); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin: 12px 0 6px; }
+.card .tagrow { display: flex; flex-wrap: wrap; gap: 6px; }
+.card .tagrow .tag { animation: none; }
+
+/* controls */
+.controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.btns { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.controls button, .controls select { font: 600 14px var(--f-body); padding: 8px 14px; border-radius: 8px; border: 1px solid var(--ui-line); background: var(--ui-bg); color: var(--ui-fg); cursor: pointer; }
+.controls select { max-width: 360px; }
+.controls button.primary { background: var(--vio-d); color: #fff; border-color: var(--vio-d); }
+.controls button:disabled { opacity: .4; cursor: not-allowed; }
+.controls button:focus-visible, .controls select:focus-visible { outline: 3px solid var(--vio); outline-offset: 2px; }
+.pos { font: 700 13px var(--f-mono); opacity: .75; }
+.hint { font: 14px var(--f-body); opacity: .75; }
+.notes { background: #fff; border: 1px solid var(--ui-line); border-radius: 10px; padding: 14px 18px; font: 16px/1.55 var(--f-body); white-space: pre-wrap; }
+.notes b { display: block; margin-bottom: 4px; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; opacity: .7; }
+
+/* ---------- OOP pieces: cabinets (classes), glass objects, name tags, call ball, code panel ---------- */
+.tag { background: var(--vio-d); }
+.ftxt.mono { font-family: var(--f-mono); font-weight: 700; }
+.ftxt.cabname { font: 700 21px var(--f-mono); letter-spacing: .01em; }
+.lab.mono { font-family: var(--f-mono); }
+.drw .f { transition: background 400ms; }
+.drw.hit .f { background: #A8EBD6 !important; }
+.drw.bad .f { background: #F4C3BA !important; }
+.drw.warn .f { background: #FFE0A8 !important; }
+.drw.ghost .f { background: #E7EFEE !important; }
+.drw.ghost .ftxt { color: #9BB3B0; }
+.glass > .f { background: rgb(10 143 138 / .08) !important; border: 2px solid rgb(10 143 138 / .55); box-sizing: border-box; }
+.val .f { transition: background 400ms; }
+.val.hit .f { background: #BFF2DF !important; }
+.val.bad .f { background: #F8D2CA !important; }
+.ball .f { border-radius: 50%; background: radial-gradient(circle at 35% 35%, #FFF3C4, #F2B33D 55%, #C98510) !important; box-shadow: 0 0 18px 6px rgb(242 179 61 / .55); }
+.pk.call { background: #8A5A00; font-size: 24px; padding: 5px 12px; }
+.strip.ref { background: #2E5D61; border-radius: 4px; transition: transform var(--move) var(--ease), width var(--move) var(--ease); }
+.strip.ref.bad { background: var(--red); } .strip.ref.good { background: var(--green); } .strip.ref.dash { background: repeating-linear-gradient(90deg, #2E5D61 0 14px, transparent 14px 24px); }
+.ahead { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-origin: 0 0; transition: transform var(--move) var(--ease); }
+.ahead::before { content: ""; position: absolute; left: -26px; top: -13px; width: 26px; height: 26px; background: #2E5D61; clip-path: polygon(0 0, 100% 50%, 0 100%); }
+.ahead.bad::before { background: var(--red); } .ahead.good::before { background: var(--green); }
+.say.err { width: auto; max-width: 560px; font: 700 19px/1.3 var(--f-mono); background: #FFF4F2; }
+.burst .err { animation: pop 450ms ease-out; }
+.code { border-radius: 12px; background: #0C2427; color: #E3F2F0; padding: 12px 0; font-family: var(--f-mono); font-weight: 600; line-height: 1.45; box-shadow: 0 8px 26px rgb(5 40 44 / .35); white-space: pre; overflow: hidden; }
+.code .cttl { padding: 0 18px 8px; font: 700 13px var(--f-body); letter-spacing: .12em; text-transform: uppercase; color: #7FB8B1; }
+.code .ln { padding: 0 16px; border-left: 5px solid transparent; transition: background 300ms, opacity 300ms; min-height: 1.45em; }
+.code .ln.on { background: rgb(0 168 150 / .32); border-left-color: #43E3CB; }
+.code .ln.good { background: rgb(27 127 90 / .45); border-left-color: #7CF2B0; }
+.code .ln.bad { background: rgb(172 59 42 / .55); border-left-color: #FF8A75; }
+.code .ln.dim { opacity: .35; }
+.code .kw { color: #78E1D2; font-weight: 800; } .code .st { color: #FFD27A; } .code .nm { color: #FFB0C8; } .code .dec { color: #C7A8FF; } .code .cm { color: #8EA9A6; font-style: italic; font-weight: 400; }
+.code.out { background: #F4FAF9; color: var(--ink); box-shadow: 0 4px 14px rgb(5 40 44 / .18); border: 2px solid var(--line); }
+.code.out .cttl { color: var(--muted); }
+.code.out span { color: inherit !important; font-weight: inherit; font-style: normal; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="frame" id="frame"><div class="stage" id="stage"></div></div>
+  <div class="controls">
+    <div class="btns">
+      <button id="prev" aria-label="Back">← Back</button>
+      <button id="next" class="primary" aria-label="Next">Next →</button>
+      <button id="again">Replay slide</button>
+      <button id="full">Full screen</button>
+      <label for="jump" class="hint">Go to</label>
+      <select id="jump"></select>
+    </div>
+    <span class="pos" id="pos"></span>
+  </div>
+  <span class="hint">→ or Space: next step. ←: back. F: full screen. Drag a 3D scene with the mouse or a finger to turn it.</span>
+</div>
+<script>
+window.OOP3D = (() => {
+"use strict";
+const stage = document.getElementById("stage"), frame = document.getElementById("frame");
+const RM = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const T = (ms) => (RM ? 1 : ms);
+const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+function el(parent, cls, html) { const e = document.createElement("div"); if (cls) e.className = cls; if (html != null) e.innerHTML = html; parent.appendChild(e); return e; }
+function shade(hex, f) {
+  const n = parseInt(hex.slice(1), 16), t = f < 0 ? 0 : 255, p = Math.abs(f);
+  const ch = (v) => Math.round(v + (t - v) * p);
+  return `rgb(${ch(n >> 16)},${ch((n >> 8) & 255)},${ch(n & 255)})`;
+}
+const COL = { Device: "#4B2E83", Software: "#6E52B5", Network: "#1B7F5A", Data: "#C9761F", People: "#AC3B2A" };
+const tagsHTML = (a) => (a || []).map((t) => `<span class="tag t-${t.toLowerCase()}">${t}</span>`).join("");
+let lastDrag = 0;
+
+// ---------------- 3D world ----------------
+// Ground coordinates: x runs left to right, y runs towards the viewer, z is height above the ground.
+function World(root, rect, cls) {
+  const vp = el(root, "vp" + (cls ? " " + cls : ""));
+  Object.assign(vp.style, { left: rect.x + "px", top: rect.y + "px", width: rect.w + "px", height: rect.h + "px" });
+  const world = el(vp, "world");
+  const timers = [], anims = [];
+  let camNow = { x: 0, y: 0, s: 1, rx: 56, rz: 16, px: 0, py: 50 }, orbit = { rz: 0, rx: 0 };
+  const W = { vp, world };
+
+  function applyCam() {
+    const c = camNow, rx = Math.max(15, Math.min(82, c.rx + orbit.rx)), rz = c.rz + orbit.rz;
+    world.style.setProperty("--rx", rx + "deg");
+    world.style.setProperty("--rz", rz + "deg");
+    world.style.transform = `translate3d(${c.px}px,${c.py}px,0) scale(${c.s}) rotateX(${rx}deg) rotateZ(${rz}deg) translate3d(${-c.x}px,${-c.y}px,0)`;
+  }
+  W.cam = (c, instant) => {
+    camNow = Object.assign({ x: 0, y: 0, s: 1, rx: 56, rz: 16, px: 0, py: 50 }, c); orbit = { rz: 0, rx: 0 };
+    if (instant) world.classList.add("nt");
+    applyCam();
+    if (instant) { void world.offsetWidth; world.classList.remove("nt"); }
+  };
+  // drag to look around
+  let drag = null;
+  vp.addEventListener("pointerdown", (e) => { drag = { x: e.clientX, y: e.clientY, rz: orbit.rz, rx: orbit.rx, moved: false }; try { vp.setPointerCapture(e.pointerId); } catch (err) {} });
+  vp.addEventListener("pointermove", (e) => {
+    if (!drag) return;
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    if (Math.abs(dx) + Math.abs(dy) > 5) drag.moved = true;
+    if (!drag.moved) return;
+    orbit.rz = drag.rz - dx * 0.25; orbit.rx = drag.rx - dy * 0.2;
+    world.classList.add("nt"); applyCam();
+  });
+  const endDrag = () => { if (!drag) return; if (drag.moved) lastDrag = Date.now(); drag = null; void world.offsetWidth; world.classList.remove("nt"); };
+  vp.addEventListener("pointerup", endDrag); vp.addEventListener("pointercancel", endDrag);
+
+  const tf = (b, p) => `translate3d(${p.x - b._w / 2}px,${p.y - b._d / 2}px,${p.z}px) scale3d(1,1,${b._g})`;
+  const place = (b) => { b.style.transform = tf(b, b._p); };
+
+  W.ground = (x, y, w, h) => { const g = el(world, "ground"); g.style.cssText += `width:${w}px;height:${h}px;transform:translate3d(${x}px,${y}px,0);`; return g; };
+  W.plate = (x, y, w, d, cls, html, parent) => { const e = el(parent || world, "plate " + (cls || ""), html || ""); e.style.cssText += `width:${w}px;height:${d}px;transform:translate3d(${x - w / 2}px,${y - d / 2}px,2px);`; return e; };
+  W.strip = (x1, y1, x2, y2, o) => {
+    o = o || {}; const len = Math.hypot(x2 - x1, y2 - y1), a = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI, w = o.w || 10;
+    const e = el(o.parent || world, "strip " + (o.cls || ""));
+    e.style.cssText += `width:${len}px;height:${w}px;transform:translate3d(${x1}px,${y1}px,${o.z || 4}px) rotateZ(${a}deg) translateY(${-w / 2}px);`;
+    return e;
+  };
+  W.grp = (x, y, z, cls, parent) => { const g = el(parent || world, "grp" + (cls ? " " + cls : "")); g.style.transform = `translate3d(${x || 0}px,${y || 0}px,${z || 0}px)`; return g; };
+  // A box: x,y is the centre of its footprint, z its base height; w along x, d along y, h upwards.
+  W.box = (o, parent) => {
+    const b = el(parent || world, "b" + (o.cls ? " " + o.cls : ""));
+    const w = o.w, d = o.d, h = o.h, c = o.c || "#6E52B5";
+    b._w = w; b._d = d; b._h = h; b._g = o.g == null ? 1 : o.g; b._p = { x: o.x || 0, y: o.y || 0, z: o.z || 0 };
+    const face = (fw, fh, t, bg, html) => { const f = el(b, "f", html || ""); f.style.cssText += `width:${fw}px;height:${fh}px;transform:${t};background:${bg};`; return f; };
+    b.top = face(w, d, `translate3d(0,0,${h}px)`, o.ct || shade(c, .25), o.top);
+    b.front = face(w, h, `translate3d(0,${d}px,${h}px) rotateX(-90deg)`, o.cf || c, o.front);
+    face(w, h, `translate3d(${w}px,0,${h}px) rotateZ(180deg) rotateX(-90deg)`, shade(c, -.3));
+    face(d, h, `translate3d(${w}px,${d}px,${h}px) rotateZ(-90deg) rotateX(-90deg)`, shade(c, -.2));
+    face(d, h, `translate3d(0,0,${h}px) rotateZ(90deg) rotateX(-90deg)`, shade(c, -.12));
+    place(b); return b;
+  };
+  W.bb = (o, parent) => { const e = el(parent || world, "bb" + (o.cls ? " " + o.cls : ""), `<div class="in">${o.html || ""}</div>`); e.style.setProperty("--p", `translate3d(${o.x || 0}px,${o.y || 0}px,${o.z || 0}px)`); e.in = e.firstChild; return e; };
+  W.show = (e, on) => { e.classList.toggle("hide", !on); };
+  W.grow = (b, g) => { b._g = Math.max(g, 0.001); place(b); };
+  W.put = (b, x, y, z) => { if (b._anim) { b._anim.cancel(); b._anim = null; } b._p = { x, y, z }; place(b); };
+  // Move a box through a list of [x,y,z] points. The last point is where it ends up.
+  W.fly = (b, pts, dur, animate, delay) => {
+    if (b._anim) { b._anim.cancel(); b._anim = null; }
+    const from = b._p, P = pts.map((p) => ({ x: p[0], y: p[1], z: p[2] }));
+    b._p = P[P.length - 1]; b.classList.add("nt"); place(b);
+    if (animate && b.animate) {
+      b._anim = b.animate([from].concat(P).map((p) => ({ transform: tf(b, p) })), { duration: T(dur), delay: T(delay || 0), easing: "ease-in-out", fill: "backwards" });
+      anims.push(b._anim);
+    }
+  };
+  W.later = (fn, ms) => { timers.push(setTimeout(fn, T(ms))); };
+  W.clear = () => { timers.splice(0).forEach(clearTimeout); };
+  W.dispose = () => { W.clear(); anims.splice(0).forEach((a) => { try { a.cancel(); } catch (e) {} }); };
+
+  // ready-made objects
+  W.person = (x, y, c, name, parent, z) => {
+    const g = W.grp(x, y, z || 0, "", parent);
+    W.box({ w: 32, d: 20, h: 54, c }, g);
+    W.box({ z: 56, w: 24, d: 20, h: 24, c: "#E3B08A" }, g);
+    if (name) g.lab = W.bb({ z: 96, html: `<span class="lab">${name}</span>` }, g);
+    return g;
+  };
+  W.phone = (x, y, o, parent) => {
+    o = o || {}; const w = o.w || 100, h = o.h || 166, d = o.d || 12;
+    const b = W.box({ x, y, z: o.z || 0, w, d, h, c: "#241C3B", front: `<div class="scr${o.big ? " big" : ""}"></div>` }, parent);
+    b.scr = b.front.firstChild; return b;
+  };
+  W.tower = (x, y, parent, z) => {
+    const g = W.grp(x, y, z || 0, "", parent);
+    W.box({ w: 40, d: 40, h: 8, c: "#B9B3CF" }, g);
+    W.box({ z: 8, w: 10, d: 10, h: 186, c: "#8E88A6" }, g);
+    W.box({ z: 120, w: 50, d: 6, h: 6, c: "#8E88A6" }, g);
+    W.box({ z: 156, w: 50, d: 6, h: 6, c: "#8E88A6" }, g);
+    W.box({ x: -25, z: 146, w: 10, d: 5, h: 34, c: "#D4CFE4" }, g);
+    W.box({ x: 25, z: 146, w: 10, d: 5, h: 34, c: "#D4CFE4" }, g);
+    W.bb({ z: 205, html: `<div class="rings"><i></i><i></i><i></i></div>` }, g);
+    return g;
+  };
+  W.servers = (x, y, label, parent, z) => {
+    const g = W.grp(x, y, z || 0, "", parent);
+    W.box({ w: 240, d: 110, h: 10, c: "#CFC4EC" }, g);
+    [-76, 0, 76].forEach((dx) => W.box({ x: dx, z: 10, w: 58, d: 52, h: 120, c: "#2B2347", front: `<div class="rack"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>` }, g));
+    if (label) g.lab = W.bb({ z: 146, html: `<span class="lab big">${label}</span>` }, g);
+    return g;
+  };
+  W.laptop = (x, y, o, parent) => {
+    o = o || {}; const g = W.grp(x, y, o.z || 0, "", parent);
+    W.box({ y: 30, w: 110, d: 70, h: 6, c: "#B9B3CF" }, g);
+    const s = W.box({ y: -6, z: 6, w: 110, d: 5, h: 72, c: "#3B3163", front: `<div class="scr" style="inset:5px"></div>` }, g);
+    g.scr = s.front.firstChild; return g;
+  };
+  W.router = (x, y, parent, z) => {
+    const g = W.grp(x, y, z || 0, "", parent);
+    W.box({ w: 64, d: 40, h: 12, c: "#EDEAF5" }, g);
+    W.box({ x: -22, z: 12, w: 4, d: 4, h: 36, c: "#3B3163" }, g); W.box({ x: 22, z: 12, w: 4, d: 4, h: 36, c: "#3B3163" }, g);
+    return g;
+  };
+  // A stack of labelled slabs: a database, a pile of files, layers of anything.
+  W.db = (x, y, labels, o, parent) => {
+    o = o || {}; const g = W.grp(x, y, o.z || 0, "", parent);
+    g.slabs = labels.map((t, k) => W.box({ z: k * 34, w: o.w || 130, d: o.d || 100, h: 28, c: o.c || "#C9761F", front: `<div class="ftxt" style="font-size:${o.fs || 18}px">${t}</div>` }, g));
+    return g;
+  };
+  // A signboard on a pole. Text goes on the front. pole: 0 puts the board on the ground.
+  W.board = (x, y, html, o, parent) => {
+    o = o || {}; const w = o.w || 230, h = o.h || 62, pole = o.pole == null ? 96 : o.pole, g = W.grp(x, y, o.z || 0, "", parent);
+    if (pole) W.box({ w: 10, d: 10, h: pole, c: "#8E88A6" }, g);
+    g.face = W.box({ z: pole, w, d: 12, h, c: o.c || "#4B2E83", front: `<div class="ftxt" style="font-size:${o.fs || 22}px">${html}</div>` }, g);
+    g.txt = g.face.front.firstChild; return g;
+  };
+  W.moveGrp = (g, x, y, z) => { g.style.transform = `translate3d(${x || 0}px,${y || 0}px,${z || 0}px)`; g._x = x || 0; g._y = y || 0; g._z = z || 0; };
+
+  // ---------- Python with the cover off: the OOP pieces ----------
+  // A CLASS is a cabinet: a name block on top, one drawer per method on its front.
+  //   o = { name: "class BankAccount", drawers: ["__init__", "deposit", "balance"], w, d, dh, c, z }
+  // Stack a child on its parent with z: parent.top. Methods are looked up from the child down.
+  //   g.at(m) -> [x, y, z] just in front of drawer m (for W.fly);  g.open(m, on);  g.mark(m, "hit" | "bad" | "ghost" | "warn" | "");
+  //   g.top -> height of the top of the name block;  g.dr[m] -> the drawer block;  g.head -> the name block;  g.reset()
+  W.cabinet = (x, y, o, parent) => {
+    const z0 = o.z || 0, g = W.grp(x, y, z0, "cab", parent);
+    g._x = x; g._y = y; g._z = z0;
+    const w = o.w || 250, d = o.d || 90, dh = o.dh || 38, gap = 8, list = o.drawers || [], n = list.length;
+    const bodyH = n ? n * (dh + gap) + gap : 16, c = o.c || "#036672", hh = o.hh || 48;
+    W.box({ w, d, h: bodyH, c: o.body || "#CFE9E6" }, g);
+    g.head = W.box({ z: bodyH, w: w + 12, d: d + 8, h: hh, c, front: `<div class="ftxt cabname" style="font-size:${o.fs || 21}px">${o.name}</div>` }, g);
+    g.top = z0 + bodyH + hh; g.dr = {}; g._dz = {}; g._shut = {};
+    const dd = 26, shut = d / 2 - dd / 2 + 10;
+    list.forEach((m, i) => {
+      const dz = bodyH - (i + 1) * (dh + gap);
+      const b = W.box({ y: shut, z: dz, w: w - 26, d: dd, h: dh, c: "#F7FCFB", cls: "drw", front: `<div class="ftxt dark mono" style="font-size:${o.dfs || 19}px">${m}</div>` }, g);
+      g.dr[m] = b; g._dz[m] = dz; g._shut[m] = shut;
+    });
+    g.at = (m) => [g._x, g._y + shut + dd / 2 + 26, g._z + (g._dz[m] == null ? bodyH : g._dz[m]) + dh / 2 - 12];
+    g.open = (m, on) => { if (g.dr[m]) W.put(g.dr[m], 0, g._shut[m] + (on ? 30 : 0), g._dz[m]); };
+    g.mark = (m, cls) => { const b = g.dr[m]; if (!b) return; ["hit", "bad", "ghost", "warn"].forEach((k) => b.classList.toggle(k, k === cls)); };
+    g.reset = () => list.forEach((m) => { g.open(m, false); g.mark(m, ""); });
+    return g;
+  };
+  // An OBJECT is a glass box you can see into, with one slot per attribute: name on the left, value on the right.
+  //   o = { title: "s", slots: [["owner", '"Ali"'], ["_balance", "10000"]], w, d, sh, kw, z }
+  //   g.set(key, html, cls) changes a value ("hit" flashes green, "bad" red);  g.showSlot(key, on) shows or hides one slot
+  //   g.at() -> [x, y, z] at the middle of the box front;  g.lab -> the title label
+  W.obj = (x, y, o, parent) => {
+    const z0 = o.z || 0, g = W.grp(x, y, z0, "obj", parent);
+    g._x = x; g._y = y; g._z = z0;
+    const slots = o.slots || [], n = Math.max(1, slots.length), sh = o.sh || 38, w = o.w || 320, d = o.d || 96, kw = o.kw || 0.5;
+    const h = o.h || n * (sh + 10) + 18;
+    W.box({ w: w + 20, d: d + 20, h: 8, c: "#9CCFC9" }, g);
+    W.box({ z: 8, w, d, h, c: "#0A8F8A", cls: "glass" }, g);
+    g.k = {}; g.v = {}; g._h = h + 8;
+    slots.forEach((s, i) => {
+      const z = 8 + h - (i + 1) * (sh + 10), kW = Math.round((w - 30) * kw), vW = w - 30 - kW;
+      g.k[s[0]] = W.box({ x: -w / 2 + 10 + kW / 2, y: d / 2 - 30, z, w: kW, d: 22, h: sh, c: "#036672", front: `<div class="ftxt mono" style="font-size:${o.kfs || 18}px">${s[0]}</div>` }, g);
+      g.v[s[0]] = W.box({ x: w / 2 - 10 - vW / 2, y: d / 2 - 30, z, w: vW, d: 22, h: sh, c: "#FFFFFF", cls: "val", front: `<div class="ftxt dark mono" style="font-size:${o.vfs || 19}px">${s[1]}</div>` }, g);
+    });
+    g.set = (key, html, cls) => { const b = g.v[key]; if (!b) return; b.front.firstChild.innerHTML = html; ["hit", "bad"].forEach((k) => b.classList.toggle(k, k === cls)); };
+    g.showSlot = (key, on) => { if (g.k[key]) { W.show(g.k[key], on); W.show(g.v[key], on); } };
+    g.at = () => [g._x, g._y + d / 2 + 30, g._z + 8 + h / 2];
+    if (o.title) g.lab = W.bb({ z: h + 24, html: `<span class="lab big mono">${o.title}</span>` }, g);
+    return g;
+  };
+  // A VARIABLE NAME is a tag on a post. It names an object through a string on the ground (W.arrow).
+  W.tag = (x, y, text, parent, o) => {
+    o = o || {}; const g = W.grp(x, y, 0, "", parent); g._x = x; g._y = y;
+    W.box({ w: 8, d: 8, h: o.post || 60, c: "#7FA9A5" }, g);
+    g.face = W.box({ z: o.post || 60, w: o.w || 80, d: 14, h: 46, c: o.c || "#C9761F", front: `<div class="ftxt mono" style="font-size:${o.fs || 26}px">${text}</div>` }, g);
+    return g;
+  };
+  // A string from (x1,y1) to (x2,y2) on the ground, with an arrowhead at the far end. a.to(x1, y1, x2, y2) re-points it (it swings there).
+  W.arrow = (x1, y1, x2, y2, o) => {
+    o = o || {}; const line = el(o.parent || world, "strip ref" + (o.cls ? " " + o.cls : "")), head = el(o.parent || world, "ahead" + (o.cls ? " " + o.cls : ""));
+    const wd = o.w || 8, z = o.z || 5;
+    const a = { line, head };
+    a.to = (ax, ay, bx, by) => {
+      const ang = Math.atan2(by - ay, bx - ax), len = Math.max(0, Math.hypot(bx - ax, by - ay) - 22);
+      line.style.width = len + "px"; line.style.height = wd + "px";
+      line.style.transform = `translate3d(${ax}px,${ay}px,${z}px) rotateZ(${ang * 180 / Math.PI}deg) translateY(${-wd / 2}px)`;
+      head.style.transform = `translate3d(${bx}px,${by}px,${z + 1}px) rotateZ(${ang * 180 / Math.PI}deg)`;
+      a.p = [ax, ay, bx, by];
+    };
+    a.to(x1, y1, x2, y2);
+    return a;
+  };
+  // A METHOD CALL is a glowing ball carrying the request. Move it with W.fly(ball, points, ms, fwd, delay).
+  //   ball.say(html) sets the label riding on it, e.g. "deposit(500)".
+  W.ball = (o) => {
+    o = o || {}; const b = W.box({ w: 30, d: 30, h: 30, c: o.c || "#F2B33D", cls: "ball nt hide" });
+    const lab = W.bb({ x: 15, y: 15, z: 40, html: "" }, b);
+    b.say = (html) => { lab.in.innerHTML = html ? `<span class="pk call">${html}</span>` : ""; };
+    if (o.label) b.say(o.label);
+    return b;
+  };
+  // A red burst with Python's exact error text, at a point in the world.
+  W.burst = (x, y, z, text, parent) => W.bb({ x, y, z, cls: "hide burst", html: `<span class="say bad err">${text}</span>` }, parent);
+  return W;
+}
+// Add lecture-only CSS from a lecture file.
+function css(text) { const s = document.createElement("style"); s.textContent = text; document.head.appendChild(s); }
+
+// ---------------- the code panel ----------------
+// A dark panel of Python drawn on top of the slide, with lines that light up as they run.
+//   const c = code(root, `class A:\n    pass`, { x: 64, y: 128, w: 520, fs: 18, title: "savings.py" });
+//   c.hl([3, 4])        light lines 3 and 4 (1-based); c.hl([]) clears that colour
+//   c.hl([5], "bad")    mark line 5 red; "good" marks green; "dim" greys lines out
+//   c.clear()           removes every mark;  c.line(5, "new text") replaces a line
+//   c.el is the panel element: W.show(c.el, on) hides or shows it
+// one pass, so a word inside a span this function just wrote is never coloured again
+const TOK = /(@\w+)|\b(class|def|return|if|elif|else|for|in|while|not|and|or|is|pass|raise|import|from|try|except|as|with|lambda|None|True|False|self|super)\b|\b(\d+(?:\.\d+)?)\b/g;
+function pyHTML(line) {
+  let h = esc(line), cm = "";
+  const ci = h.search(/#(?=(?:[^"']|"[^"]*"|'[^']*')*$)/);
+  if (ci >= 0) { cm = `<span class="cm">${h.slice(ci)}</span>`; h = h.slice(0, ci); }
+  const parts = h.split(/("[^"]*"|'[^']*')/);
+  h = parts.map((p, i) => (i % 2 ? `<span class="st">${p}</span>` : p.replace(TOK, (m, dec, kw, num) => `<span class="${dec ? "dec" : kw ? "kw" : "nm"}">${m}</span>`))).join("");
+  return h + cm;
+}
+function code(root, src, o) {
+  o = o || {};
+  const c = { el: el(root, "ov code" + (o.cls ? " " + o.cls : "")) };
+  c.el.style.cssText = `left:${o.x == null ? 64 : o.x}px;top:${o.y == null ? 128 : o.y}px;width:${o.w || 520}px;font-size:${o.fs || 18}px;` + (o.style || "");
+  if (o.title) el(c.el, "cttl", esc(o.title));
+  c.ln = src.replace(/\n$/, "").split("\n").map((t) => el(c.el, "ln", pyHTML(t) || " "));
+  c.hl = (nums, cls) => { cls = cls || "on"; c.ln.forEach((l, i) => l.classList.toggle(cls, (nums || []).includes(i + 1))); };
+  c.clear = () => c.ln.forEach((l) => l.classList.remove("on", "bad", "good", "dim"));
+  c.line = (n, t) => { if (c.ln[n - 1]) c.ln[n - 1].innerHTML = pyHTML(t) || " "; };
+  return c;
+}
+
+// ---------------- shared scene pieces ----------------
+const S = {};
+const VP = { x: 0, y: 112, w: 1280, h: 484 };
+
+// A sender, a tower, servers, a tower and a receiver. Used by the trace and by the solution.
+function route(W, cfg) {
+  W.ground(-280, -340, 2060, 660);
+  const R = {};
+  W.plate(40, 70, 340, 240, "city", cfg.cityA);
+  W.plate(1460, 70, 340, 240, "city", cfg.cityB);
+  W.plate(750, 60, 520, 60, "small", "The internet: cables and routers");
+  R.pa = W.person(-30, 70, "#4B2E83", cfg.nameA);
+  R.phA = W.phone(90, 80);
+  R.twA = W.tower(330, -110);
+  R.c1 = W.strip(330, -110, 520, -20); R.c2 = W.strip(520, -20, 750, -50);
+  R.c3 = W.strip(750, -50, 980, -20); R.c4 = W.strip(980, -20, 1170, -110);
+  W.box({ x: 520, y: -20, w: 46, d: 32, h: 16, c: "#EDEAF5" }); W.box({ x: 980, y: -20, w: 46, d: 32, h: 16, c: "#EDEAF5" });
+  R.srv = W.servers(750, -130, cfg.server);
+  R.twB = W.tower(1170, -110);
+  R.phB = W.phone(1410, 80);
+  R.pb = W.person(1530, 70, "#AC3B2A", cfg.nameB);
+  R.pk = W.box({ x: 90, y: 80, z: 168, w: 36, d: 26, h: 22, c: "#C9761F", cls: "nt hide" });
+  R.pkLab = W.bb({ x: 18, y: 13, z: 30, html: "" }, R.pk);
+  R.back = W.box({ x: 1410, y: 80, z: 168, w: 30, d: 22, h: 18, c: "#1976D2", cls: "nt hide" });
+  R.backLab = W.bb({ x: 15, y: 11, z: 26, html: `<span class="pk tick">✓✓</span>` }, R.back);
+  R.note = W.bb({ x: 965, y: -130, z: 120, cls: "hide", html: "" });
+  R.P = {
+    a: [90, 80, 184], ta: [330, -110, 206], taBase: [330, -110, 18], r1: [520, -20, 20], sFront: [750, -50, 20], sTop: [750, -130, 190],
+    r2: [980, -20, 20], tbBase: [1170, -110, 18], tb: [1170, -110, 206], b: [1410, 80, 184], bIn: [1410, 80, 130], aIn: [90, 80, 130]
+  };
+  R.cables = (on) => [R.c1, R.c2, R.c3, R.c4].forEach((c, i) => c.classList.toggle("on", on.includes(i + 1)));
+  R.cams = { all: { x: 750, y: -10, s: .6, py: 70 }, a: { x: 60, y: 60, s: 1.45, py: 110 }, air: { x: 210, y: -20, s: 1.15, py: 120 }, net: { x: 560, y: -50, s: .98, py: 100 },
+    srv: { x: 760, y: -90, s: 1.2, py: 120 }, net2: { x: 960, y: -50, s: .98, py: 100 }, b: { x: 1440, y: 60, s: 1.45, py: 110 } };
+  return R;
+}
+
+// ---------------- deck engine ----------------
+function run(DECK) {
+  let si = 0, step = 0, scene = null, slideEl = null, capEl = null;
+  function build(i) {
+    const sl = DECK.slides[i];
+    if (scene && scene.W) scene.W.dispose();
+    if (slideEl) slideEl.remove();
+    slideEl = el(stage, "slide " + (sl.type || ""));
+    capEl = null;
+    if (sl.type !== "cover") { el(slideEl, "kicker", esc(sl.k)); el(slideEl, "ttl", sl.t); }
+    scene = S[sl.scene](slideEl, sl);
+    if (!scene.nocap) capEl = el(slideEl, "cap empty", `<span class="txt"></span><span class="tags"></span>`);
+    el(slideEl, "foot", esc(DECK.foot)); el(slideEl, "ctr", "");
+  }
+  function render(fwd) {
+    const sl = DECK.slides[si], r = scene.go(step, fwd) || {};
+    if (capEl) {
+      capEl.className = "cap" + (r.cap ? "" : " empty") + (r.ck ? " " + r.ck : "");
+      capEl.querySelector(".txt").textContent = r.cap || "";
+      capEl.querySelector(".tags").innerHTML = tagsHTML(r.tags);
+    }
+    slideEl.querySelector(".ctr").textContent = (si + 1) + " / " + DECK.slides.length + (scene.n > 1 ? "  ·  step " + (step + 1) + "/" + scene.n : "");
+    document.getElementById("pos").textContent = `Slide ${si + 1} of ${DECK.slides.length}${scene.n > 1 ? `  ·  step ${step + 1} of ${scene.n}` : ""}`;
+    document.getElementById("jump").value = String(si);
+    document.getElementById("prev").disabled = si === 0 && step === 0;
+    document.getElementById("next").disabled = si === DECK.slides.length - 1 && step === scene.n - 1;
+    try { history.replaceState(null, "", "#s" + (si + 1)); } catch (e) {}
+  }
+  function goSlide(i, atEnd) {
+    if (i < 0 || i >= DECK.slides.length) return;
+    si = i; build(i); step = atEnd ? scene.n - 1 : 0;
+    render(false);
+  }
+  function next() { if (step < scene.n - 1) { step++; render(true); } else goSlide(si + 1, false); }
+  function prev() { if (step > 0) { step--; render(false); } else goSlide(si - 1, true); }
+
+  const jump = document.getElementById("jump");
+  DECK.slides.forEach((s, k) => { const o = document.createElement("option"); o.value = String(k); o.textContent = (k + 1) + ". " + s.t; jump.appendChild(o); });
+  jump.addEventListener("change", () => goSlide(+jump.value, false));
+  document.getElementById("next").addEventListener("click", next);
+  document.getElementById("prev").addEventListener("click", prev);
+  document.getElementById("again").addEventListener("click", () => goSlide(si, false));
+  document.getElementById("full").addEventListener("click", () => { const r = frame.requestFullscreen && frame.requestFullscreen(); if (r && r.catch) r.catch(() => {}); });
+  // the OOP decks are for students: no speaker notes, no notes button
+  document.addEventListener("keydown", (e) => {
+    if (e.target && (e.target.tagName === "SELECT" || e.target.tagName === "INPUT")) return;
+    if (["ArrowRight", "PageDown", " ", "Enter", "ArrowDown"].includes(e.key)) { e.preventDefault(); next(); }
+    else if (["ArrowLeft", "PageUp", "Backspace", "ArrowUp"].includes(e.key)) { e.preventDefault(); prev(); }
+    else if (e.key === "f" || e.key === "F") document.getElementById("full").click();
+    else if (e.key === "Home") goSlide(0, false);
+    else if (e.key === "End") goSlide(DECK.slides.length - 1, false);
+  });
+  stage.addEventListener("click", () => { if (document.fullscreenElement === frame && Date.now() - lastDrag > 350) next(); });
+  function fit() {
+    const full = document.fullscreenElement === frame;
+    const w = full ? window.innerWidth : frame.clientWidth;
+    // outside full screen, keep the slide and the button row inside the window together
+    // (a phone held sideways is wide but short, so the width alone would push the buttons off screen)
+    const ctl = document.querySelector(".controls");
+    const room = window.innerHeight - (ctl ? ctl.offsetHeight : 0) - 24;
+    const h = full ? window.innerHeight : Math.min(w * 720 / 1280, Math.max(room, 200));
+    const s = Math.min(w / 1280, h / 720);
+    stage.style.transform = `scale(${s})`;
+    stage.style.left = (w - 1280 * s) / 2 + "px";
+    if (full) stage.style.top = (h - 720 * s) / 2 + "px";
+    else { stage.style.top = "0px"; frame.style.height = 720 * s + "px"; }
+  }
+  window.addEventListener("resize", fit);
+  document.addEventListener("fullscreenchange", fit);
+  fit();
+  let start = 0;
+  try { const m = /^#s(\d+)$/.exec(location.hash); if (m) start = Math.min(DECK.slides.length - 1, Math.max(0, +m[1] - 1)); } catch (e) {}
+  goSlide(start, false);
+  window.__deck = { next, prev, goSlide, get pos() { return [si, step, scene.n]; }, count: DECK.slides.length };
+}
+
+return { World, S, VP, run, el, esc, shade, tagsHTML, T, css, code, pyHTML };
+})();
+</script>
+<script>
+// TITLE: OOP · Week 7 · Lecture 1 · Building on another class (3D)
+(() => {
+"use strict";
+const { World, S, VP, el, esc, code, css } = window.OOP3D;
+
+css(`
+.form { position: absolute; inset: 14px 16px; display: flex; flex-direction: column; gap: 9px; text-align: left; font: 700 19px var(--f-body); color: var(--ink); }
+.form b { font: 700 21px var(--f-head); color: var(--vio-d); margin-bottom: 4px; }
+.form span { border-bottom: 2px solid #9CCFC9; padding-bottom: 3px; }
+.sheet .f { box-shadow: inset 0 0 0 3px #8CC5BE; }
+.form .nf { display: none; color: var(--green); border-color: var(--green); }
+.form.added .nf { display: block; }
+.ptab { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 18px; }
+.ptab th { text-align: left; font: 700 13px var(--f-body); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); padding: 4px 6px; }
+.ptab td { padding: 7px 6px; border-top: 1px solid var(--line); }
+.ptab td.n { width: 28px; font-weight: 700; color: var(--vio); }
+.ptab td.blank { border-bottom: 2px dashed #B7D9D5; width: 120px; }
+`);
+
+// a cabinet the size used on most slides
+const cab = (W, x, y, name, drawers, o) => W.cabinet(x, y, Object.assign({ name, drawers, w: 270, dfs: 22 }, o || {}));
+
+// Cover: a child class built on its parent, and one object made from it.
+S.cover = (root, sl) => {
+  el(root, "cv-bg");
+  el(root, "cv-text", `<div class="ck">${esc(sl.k)}</div><div class="ct">${sl.t}</div><div class="cs">${sl.sub}</div><div class="cb">${sl.badge}</div>`);
+  const W = World(root, { x: 560, y: 0, w: 720, h: 720 }, "clear");
+  const g = W.grp(0, 0, 0, "sway");
+  W.plate(0, 0, 600, 600, "disc", "", g);
+  const p = W.cabinet(-70, 0, { name: "BankAccount", drawers: ["__init__", "deposit", "balance"], w: 230 }, g);
+  W.cabinet(-70, 0, { name: "SavingsAccount", drawers: ["add_interest"], w: 230, z: p.top }, g);
+  W.obj(165, 70, { slots: [["owner", '"Ali"'], ["_balance", "10000"], ["rate", "0.05"]], w: 210, kw: .52, kfs: 16, vfs: 17 }, g);
+  W.cam({ rx: 58, rz: 0, s: .95, py: 190 }, true);
+  return { n: 1, W, nocap: true, go() { return {}; } };
+};
+
+// The same code, written twice.
+S.dup = (root) => {
+  const W = World(root, VP);
+  W.ground(-520, -230, 1640, 560);
+  const same = ["__init__", "deposit", "withdraw"];
+  const sav = cab(W, -300, -20, "class SavingsAccount", [...same, "add_interest"]);
+  const cur = cab(W, 60, -20, "class CurrentAccount", [...same, "allow_overdraft"]);
+  const third = cab(W, 420, -20, "class ___Account", [...same, "..."]);
+  third.classList.add("hide");
+  const ball = W.ball({ label: "new deposit rule" });
+  const tNew = W.bb({ x: -300, y: 60, z: 300, cls: "hide", html: `<span class="lab big good">new rule</span>` });
+  const tOld = W.bb({ x: 60, y: 60, z: 300, cls: "hide", html: `<span class="lab big bad">old rule</span>` });
+  const caps = [
+    `Two kinds of account, written as two classes. Each method is a drawer in its class.`,
+    `Everything in orange is identical.`,
+    `Change the deposit rule and you edit it twice.`,
+    `Add a third account type and you edit it three times.`,
+    `And the day somebody edits one and forgets the other, two kinds of account quietly start behaving differently.`,
+    `Duplication is not ugly, it is dangerous, because copies drift apart.`
+  ];
+  return { n: 6, W, go(step, fwd) {
+    W.clear();
+    [sav, cur, third].forEach((c) => c.reset());
+    W.show(third, step === 3);
+    if (step >= 1 && step <= 3) [sav, cur, third].forEach((c) => same.forEach((m) => c.mark(m, "warn")));
+    W.show(ball, step === 2 || step === 3);
+    if (step === 2 || step === 3) {
+      const stops = step === 2 ? [sav, cur] : [sav, cur, third];
+      stops.forEach((c) => c.mark("deposit", "hit"));
+      const pts = stops.map((c) => c.at("deposit"));
+      W.put(ball, -620, 160, 260);
+      W.fly(ball, pts, 1200 * pts.length, fwd, 300);
+      stops.forEach((c, i) => { if (fwd) W.later(() => c.open("deposit", true), 300 + 1200 * (i + 1)); else c.open("deposit", true); });
+    }
+    if (step >= 4) { sav.mark("deposit", "hit"); cur.mark("deposit", "bad"); }
+    W.show(tNew, step >= 4); W.show(tOld, step >= 4);
+    W.cam(step === 3 ? { x: 60, y: 20, s: .9, rz: 10, py: 165 } : { x: -120, y: 20, s: 1.15, rz: 10, py: 185 });
+    return { cap: caps[step], ck: step === 4 ? "bad" : step === 5 ? "warn" : "" };
+  } };
+};
+
+// A general form, plus extra pages.
+S.form = (root) => {
+  const W = World(root, VP);
+  W.ground(-640, -300, 1560, 640);
+  const sheet = (x, y, title, lines, c, parent) => W.box({ x, y, w: 240, d: 8, h: 250, c: c || "#FFFFFF", cls: "sheet",
+    front: `<div class="form"><b>${title}</b>${lines.map((l) => `<span>${l}</span>`).join("")}<span class="nf">Phone number</span></div>` }, parent);
+  const general = ["Name", "Father's name", "CNIC", "Address"];
+  const formG = W.grp(0, 0, 0);
+  const master = sheet(0, -110, "General form", general, null, formG);
+  const masterLab = W.bb({ x: 0, y: -110, z: 280, html: `<span class="lab big">The general form</span>` }, formG);
+  const apps = [{ x: -330, name: "Engineering applicant", page: "Maths page", pl: ["Mathematics marks", "Physics marks"] },
+    { x: 330, name: "Medical applicant", page: "Biology page", pl: ["Biology marks", "Chemistry marks"] }];
+  apps.forEach((a) => {
+    a.g = W.grp(a.x, 40, 0, "", formG);
+    a.copy = sheet(0, 0, "General form", general, null, a.g);
+    a.extra = W.box({ x: 70, y: 40, w: 240, d: 8, h: 220, c: "#FFF4E2", cls: "sheet hide", front: `<div class="form"><b>${a.page}</b>${a.pl.map((l) => `<span>${l}</span>`).join("")}</div>` }, a.g);
+    a.who = W.person(-170, 60, a.x < 0 ? "#036672" : "#AC3B2A", "", a.g);
+    a.lab = W.bb({ x: 0, y: 0, z: 290, html: `<span class="lab big">${a.name}</span>` }, a.g);
+  });
+  // the same idea as classes
+  const clsG = W.grp(0, 0, 0, "hide");
+  const parent = W.cabinet(0, -40, { name: "class BankAccount", drawers: ["__init__", "deposit", "withdraw"], w: 620 }, clsG);
+  const kidS = W.cabinet(-160, -40, { name: "SavingsAccount", drawers: ["add_interest"], w: 280, z: parent.top }, clsG);
+  const kidC = W.cabinet(160, -40, { name: "CurrentAccount", drawers: ["allow_overdraft"], w: 280, z: parent.top }, clsG);
+  const lP = W.bb({ x: 470, y: 60, z: 90, cls: "hide", html: `<span class="say" style="font-size:22px;width:260px">The parent<i>or base class</i></span>` }, clsG);
+  const lC = W.bb({ x: 470, y: 60, z: 300, cls: "hide", html: `<span class="say" style="font-size:22px;width:260px">The child<i>or subclass</i></span>` }, clsG);
+  const caps = [
+    `Think of admission at the university. Everybody fills the same general form: name, father's name, CNIC, address.`,
+    `The general form is written once. Every applicant fills it.`,
+    `If the university adds a field, it is added in one place.`,
+    `Engineering applicants attach a maths page. Medical applicants attach a biology page. Only what is special about them.`,
+    `Inheritance is exactly this. One class holds what every kind of account has. Each specific kind adds only what is different about it.`,
+    `The general class is called the parent, or base class. The specific one is the child, or subclass.`
+  ];
+  return { n: 6, W, go(step) {
+    W.clear();
+    const forms = step <= 3;
+    W.show(formG, forms); formG.classList.toggle("hide", !forms); clsG.classList.toggle("hide", forms);
+    apps.forEach((a) => { W.show(a.copy, step >= 1); W.show(a.who, step >= 1); W.show(a.lab, step >= 1); W.show(a.extra, step >= 3); });
+    [master, ...apps.map((a) => a.copy)].forEach((b) => b.front.firstChild.classList.toggle("added", step >= 2));
+    W.show(masterLab, true);
+    W.show(lP, step === 5); W.show(lC, step === 5);
+    if (forms) W.cam(step === 0 ? { x: 0, y: -100, s: 1.35, rz: 0, rx: 62, py: 200 } : { x: 0, y: -10, s: .86, rz: 0, rx: 62, py: 175 });
+    else W.cam({ x: 60, y: 0, s: .8, rz: 8, py: 165 });
+    return { cap: caps[step], ck: step === 4 ? "good" : "" };
+  } };
+};
+
+// Inheritance in code: watch Python look for a method.
+const SRC6 = `class BankAccount:
+    def __init__(self, number, owner, balance):
+        self.number = number
+        self.owner = owner
+        self._balance = balance
+    def deposit(self, amount):
+        if amount <= 0:
+            return False
+        self._balance = self._balance + amount
+        return True
+    @property
+    def balance(self):
+        return self._balance
+
+class SavingsAccount(BankAccount):
+    def __init__(self, number, owner, balance, rate):
+        super().__init__(number, owner, balance)
+        self.rate = rate
+    def add_interest(self):
+        self.deposit(self.balance * self.rate)`;
+
+function family(W) {
+  const F = {};
+  F.bank = cab(W, 0, 0, "class BankAccount", ["__init__", "deposit", "balance"], { dfs: 22 });
+  F.sav = cab(W, 0, 0, "class SavingsAccount", ["__init__", "add_interest"], { z: F.bank.top, fs: 20, dfs: 22 });
+  F.obj = W.obj(350, 80, { title: "s", slots: [["number", '"S-1"'], ["owner", '"Ali"'], ["_balance", "10000"], ["rate", "0.05"]], w: 260, kfs: 19, vfs: 20 });
+  F.tag = W.tag(350, 330, "s");
+  F.ref = W.arrow(350, 318, 350, 150);
+  F.ball = W.ball();
+  return F;
+}
+
+S.code = (root) => {
+  const W = World(root, VP);
+  W.ground(-260, -200, 1000, 640);
+  const F = family(W), c = code(root, SRC6, { x: 40, y: 122, w: 540, fs: 15, title: "accounts.py" });
+  const stack = W.bb({ x: 0, y: 60, z: 380, html: `<span class="lab big">SavingsAccount is a BankAccount</span>` });
+  const steps = [
+    { cap: `The brackets after the class name say: start from BankAccount, then add what is special about savings.`, hl: [15] },
+    { cap: `s = SavingsAccount("S-1", "Ali", 10000, 0.05) builds one object: a glass box you can see into. The values are an example.`, hl: [16, 17, 18] },
+    { cap: `s.deposit(500): Python looks in the object, then in SavingsAccount, then in BankAccount. deposit is found there, written once.`, hl: [6, 7, 8, 9, 10] },
+    { cap: `s.add_interest() is found in SavingsAccount. It calls self.deposit, and Python climbs down to BankAccount again: 10500 × 0.05 = 525.`, hl: [19, 20, 6, 9] },
+    { cap: `Deposit, withdraw and balance were not written again.`, hl: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13], ck: "good" }
+  ];
+  return { n: steps.length, W, go(step, fwd) {
+    W.clear(); F.bank.reset(); F.sav.reset(); c.clear();
+    const st = steps[step]; c.hl(st.hl);
+    W.show(F.obj, step >= 1); W.show(F.tag, step >= 1); W.show(F.ref.line, step >= 1); W.show(F.ref.head, step >= 1);
+    W.show(stack, step === 0);
+    F.obj.set("_balance", step >= 3 ? "11025.0" : step >= 2 ? "10500" : "10000", step === 2 || step === 3 ? "hit" : "");
+    W.show(F.ball, step === 2 || step === 3);
+    const top = [0, 110, F.sav.top + 30];
+    if (step === 2) {
+      F.ball.say("deposit(500)");
+      W.put(F.ball, 350, 330, 130);
+      W.fly(F.ball, [F.obj.at(), top, F.sav.at("add_interest"), F.bank.at("deposit")], 3600, fwd, 200);
+      const done = () => { F.bank.open("deposit", true); F.bank.mark("deposit", "hit"); };
+      if (fwd) W.later(done, 3800); else done();
+    }
+    if (step === 3) {
+      F.ball.say("add_interest()");
+      W.put(F.ball, 350, 330, 130);
+      W.fly(F.ball, [F.obj.at(), top, F.sav.at("add_interest"), F.bank.at("balance"), F.bank.at("deposit")], 4400, fwd, 200);
+      const a = () => { F.sav.open("add_interest", true); F.sav.mark("add_interest", "hit"); };
+      const b = () => { F.bank.open("deposit", true); F.bank.mark("deposit", "hit"); F.bank.mark("balance", "hit"); };
+      if (fwd) { W.later(a, 2000); W.later(b, 4600); } else { a(); b(); }
+    }
+    if (step === 4) ["__init__", "deposit", "balance"].forEach((m) => F.bank.mark(m, "hit"));
+    W.cam({ x: 175, y: 90, s: .8, rz: 6, px: 300, py: 160 });
+    return { cap: st.cap, ck: st.ck };
+  } };
+};
+
+// super(): run the parent's setup first, and what happens without it.
+S.sup = (root) => {
+  const W = World(root, VP);
+  W.ground(-260, -200, 1000, 640);
+  const F = family(W);
+  const c = code(root, `def __init__(self, number, owner, balance, rate):
+    super().__init__(number, owner, balance)
+    self.rate = rate`, { x: 40, y: 124, w: 600, fs: 19, title: "class SavingsAccount" });
+  const err = W.burst(350, 80, 300, `AttributeError: 'SavingsAccount' object<br>has no attribute '_balance'`);
+  const only = W.bb({ x: 350, y: 80, z: 290, cls: "hide", html: `<span class="lab big bad">only rate</span>` });
+  const parts = ["number", "owner", "_balance"];
+  const caps = [
+    `s = SavingsAccount("S-1", "Ali", 10000, 0.05): Python builds an empty object, then runs SavingsAccount's __init__.`,
+    `super() means: the class I was built from. The call goes down to BankAccount's __init__.`,
+    `Step 1. Let BankAccount set up the parts every account has: number, owner and the balance, written once, in the parent.`,
+    `Step 2. Then set up what is special about this one: the interest rate, which only a savings account has.`,
+    `Forget the super() line and the account has a rate but no owner, no number and no balance.`,
+    `Nothing warns you until something asks for them. s.balance reaches for _balance, and the object never got one.`
+  ];
+  return { n: 6, W, go(step, fwd) {
+    W.clear(); F.bank.reset(); F.sav.reset(); c.clear();
+    c.line(2, step >= 4 ? "    # super().__init__(number, owner, balance)" : "    super().__init__(number, owner, balance)");
+    c.hl(step === 0 ? [1] : step <= 2 ? [2] : step === 3 ? [3] : step === 5 ? [] : [3]);
+    if (step >= 4) c.hl([2], "dim");
+    W.show(F.obj, true); W.show(F.tag, true); W.show(F.ref.line, true); W.show(F.ref.head, true);
+    F.obj.set("_balance", "10000");
+    parts.forEach((k) => { F.obj.showSlot(k, step >= 2 && step <= 3); F.obj.set(k, k === "number" ? '"S-1"' : k === "owner" ? '"Ali"' : "10000", step === 2 ? "hit" : ""); });
+    F.obj.showSlot("rate", step >= 3); F.obj.set("rate", "0.05", step === 3 ? "hit" : "");
+    W.show(only, step === 4);
+    W.show(F.ball, step === 1 || step === 5); W.show(err, step === 5 && !fwd);
+    if (step === 1) {
+      F.ball.say("super().__init__(...)");
+      W.put(F.ball, ...F.sav.at("__init__"));
+      W.fly(F.ball, [F.bank.at("__init__")], 1800, fwd, 300);
+      F.sav.mark("__init__", "hit");
+      const d = () => { F.bank.open("__init__", true); F.bank.mark("__init__", "hit"); };
+      if (fwd) W.later(d, 2100); else d();
+    }
+    if (step === 2) { F.bank.open("__init__", true); F.bank.mark("__init__", "hit"); }
+    if (step === 5) {
+      F.ball.say("s.balance");
+      W.put(F.ball, 350, 330, 130);
+      W.fly(F.ball, [F.obj.at(), [0, 110, F.sav.top + 30], F.sav.at("add_interest"), F.bank.at("balance"), F.obj.at()], 4600, fwd, 200);
+      const hit = () => { F.bank.open("balance", true); F.bank.mark("balance", "hit"); };
+      if (fwd) { W.later(hit, 3500); W.later(() => W.show(err, true), 4900); } else hit();
+    }
+    W.cam({ x: 175, y: 90, s: .8, rz: 6, px: 290, py: 175 });
+    return { cap: caps[step], ck: step >= 4 ? "bad" : step === 3 ? "good" : "" };
+  } };
+};
+
+// The test: say it in English.
+function hasA(W, x, y, outer, inner, n, parent) {
+  const g = W.grp(x, y, 0, "", parent);
+  W.box({ w: 250, d: 150, h: 8, c: "#9CCFC9" }, g);
+  W.box({ z: 8, w: 230, d: 130, h: 130, c: "#0A8F8A", cls: "glass" }, g);
+  const xs = n === 1 ? [0] : [-70, 0, 70];
+  xs.forEach((dx) => W.box({ x: dx, y: 10, z: 8, w: n === 1 ? 130 : 60, d: 50, h: n === 1 ? 60 : 80, c: "#C9761F", front: `<div class="ftxt mono" style="font-size:${n === 1 ? 20 : 15}px">${inner}</div>` }, g));
+  W.bb({ z: 170, html: `<span class="lab big mono">${outer}</span>` }, g);
+  return g;
+}
+function isA(W, x, y, child, parentName, parent) {
+  const g = W.grp(x, y, 0, "", parent);
+  const p = W.cabinet(0, 0, { name: parentName, drawers: [], w: 230, hh: 60 }, g);
+  W.cabinet(0, 0, { name: child, drawers: [], w: 230, hh: 60, z: p.top, c: "#0A8F8A" }, g);
+  return g;
+}
+S.isa = (root) => {
+  const W = World(root, VP);
+  W.ground(-260, -260, 2000, 560);
+  const rows = [
+    { s: "A SavingsAccount is a BankAccount", ok: true, v: "True: inherit", make: (x) => isA(W, x, 0, "SavingsAccount", "BankAccount") },
+    { s: "A Student is a Person", ok: true, v: "True: inherit", make: (x) => isA(W, x, 0, "Student", "Person") },
+    { s: "A Car is an Engine", ok: false, v: "False. A Car has an Engine: composition", make: (x) => hasA(W, x, 0, "Car", "Engine", 1) },
+    { s: "An Order is a Customer", ok: false, v: "False. An Order has a Customer", make: (x) => hasA(W, x, 0, "Order", "Customer", 1) },
+    { s: "A Library is a Book", ok: false, v: "False. A Library has many Books", make: (x) => hasA(W, x, 0, "Library", "Book", 3) }
+  ];
+  rows.forEach((r, i) => {
+    r.x = i * 370; r.g = r.make(r.x); r.g.classList.add("hide");
+    r.say = W.bb({ x: r.x + 250, y: -20, z: 230, cls: "hide", html: `<span class="say ${r.ok ? "good" : "bad"}" style="font-size:21px;width:300px">"${r.s}"<i>${r.v}</i></span>` });
+    // on the wide view the cards are too small to read, so each station shows one big word instead
+    r.short = W.bb({ x: r.x, y: 90, z: 0, cls: "hide", html: `<span class="lab ${r.ok ? "good" : "bad"}" style="font-size:42px;padding:6px 22px">${r.ok ? "is-a" : "has-a"}</span>` });
+  });
+  const rule = el(root, "ov card", `<h4>Before you write the brackets, say the sentence out loud</h4><div style="font:700 34px var(--f-head);color:var(--vio-d);margin:6px 0">"A ___ is a ___."</div>If it sounds wrong in English, it is wrong in code.`);
+  rule.style.cssText = "left:300px;top:200px;width:680px;text-align:center;font-size:22px;";
+  const caps = [
+    `Before you write the brackets, say the sentence out loud. If it sounds wrong in English, it is wrong in code.`,
+    `"A SavingsAccount is a BankAccount." True: inherit. The child class is built on top of the parent.`,
+    `"A Student is a Person." True: inherit.`,
+    `"A Car is an Engine." False. A Car has an Engine: composition. The engine is an object the car holds inside it.`,
+    `"An Order is a Customer." False. An Order has a Customer.`,
+    `"A Library is a Book." False. A Library has many Books.`,
+    `Most relationships between classes are has-a, not is-a. You have been writing has-a since Week 5 without needing any of today's syntax.`
+  ];
+  return { n: 7, W, go(step) {
+    W.clear();
+    W.show(rule, step === 0);
+    rows.forEach((r, i) => {
+      r.g.classList.toggle("hide", !(step >= i + 1)); W.show(r.say, step === i + 1); W.show(r.short, step === 6);
+      r.g.classList.toggle("dim", step >= 1 && step <= 5 && i + 1 !== step);
+      if (r.g.lastChild && r.g.lastChild.classList.contains("bb")) W.show(r.g.lastChild, step !== 6);
+    });
+    if (step === 0 || step === 6) W.cam({ x: 740, y: 0, s: .62, rz: 6, py: 150 });
+    else W.cam({ x: rows[step - 1].x + 110, y: 20, s: .95, rz: 8, py: 215 });
+    return { cap: caps[step], ck: step === 6 ? "good" : step >= 3 ? "bad" : step >= 1 ? "good" : "" };
+  } };
+};
+
+// Problem 13: six pairs.
+const PAIRS = [
+  { a: "Teacher", b: "Person", isa: true, why: "A teacher is a person, with extra things such as a subject" },
+  { a: "Library", b: "Book", isa: false, why: "A library holds many books. It is not itself a book" },
+  { a: "Rickshaw", b: "Vehicle", isa: true, why: "A rickshaw is a kind of vehicle" },
+  { a: "Appointment", b: "Patient", isa: false, why: "An appointment holds one patient and one doctor" },
+  { a: "Batch", b: "Medicine", isa: false, why: "A batch is a shipment of one medicine, not a medicine" },
+  { a: "Square", b: "Rectangle", q: true, why: "True in geometry. We will see next lecture that it is false in code" }
+];
+const PX = [0, 430, 860], PY = [-110, 190];
+function pairScene(W, show) {
+  W.ground(-260, -300, 1380, 680);
+  return PAIRS.map((p, i) => {
+    const x = PX[i % 3], y = PY[Math.floor(i / 3)], P = { x, y };
+    P.A = W.box({ x: x - 80, y, w: 150, d: 60, h: 60, c: "#036672", cls: "nt", front: `<div class="ftxt mono" style="font-size:19px">${p.a}</div>`, top: `<div class="ftxt mono" style="font-size:17px">${p.a}</div>` });
+    P.B = W.box({ x: x + 80, y, w: 150, d: 60, h: 60, c: "#5B7275", cls: "nt", front: `<div class="ftxt mono" style="font-size:19px">${p.b}</div>`, top: `<div class="ftxt mono" style="font-size:17px">${p.b}</div>` });
+    P.q = W.bb({ x, y, z: 90, html: `<span class="lab big ${p.q ? "warn" : ""}" style="font-size:40px;padding:6px 20px">${i + 1}  ?</span>` });
+    if (show) {
+      W.show(P.q, false);
+      P.short = W.bb({ x, y: y + 40, z: 150, cls: "hide", html: `<span class="lab ${p.q ? "warn" : "good"}" style="font-size:40px;padding:6px 20px">${i + 1} · ${p.q ? "?" : p.isa ? "is-a" : "has-a"}</span>` });
+      P.glass = W.box({ x: x - 80, y, w: 190, d: 110, h: 110, c: "#0A8F8A", cls: "glass hide" });
+      P.v = W.bb({ x: x + 250, y: y - 30, z: 190, cls: "hide", html: `<span class="say ${p.q ? "warn" : "good"}" style="font-size:20px;width:300px">${i + 1} · ${p.a} / ${p.b}: ${p.q ? "?" : p.isa ? "is-a" : "has-a"}<i>${p.why}</i></span>` });
+    }
+    return P;
+  });
+}
+S.practice = (root) => {
+  const W = World(root, VP);
+  pairScene(W, false);
+  el(root, "ov card", `<h4>For each pair, say the sentence out loud, then decide. Write one reason for each.</h4>
+    <table class="ptab"><tr><th></th><th>The pair</th><th>is-a or has-a?</th><th>Your reason</th></tr>
+    ${PAIRS.map((p, i) => `<tr><td class="n">${i + 1}</td><td>${p.a} / ${p.b}</td><td class="blank"></td><td class="blank"></td></tr>`).join("")}</table>
+    <div style="margin-top:10px">Number 6 is the interesting one. Answer it from geometry first, then hold your answer: we return to it next lecture.</div>`).style.cssText = "left:40px;top:122px;width:600px;font-size:18px;";
+  el(root, "timebar", "Time: 8 minutes. Pairs.");
+  W.cam({ x: 430, y: 40, s: .52, rz: 8, px: 330, py: 120 }, true);
+  return { n: 1, W, nocap: true, go() { return {}; } };
+};
+S.solution = (root) => {
+  const W = World(root, VP);
+  const P = pairScene(W, true);
+  const caps = PAIRS.map((p, i) => `${i + 1}. ${p.a} / ${p.b}: ${p.q ? "?" : p.isa ? "is-a" : "has-a"}. ${p.why}.`);
+  caps.push(`Four of the six are has-a. That ratio is normal, and it is why Week 5 came before Week 7.`);
+  caps.push(`Leave row 6 with a question mark on the board until next lecture. Everybody in this room answered it the same way, and everybody was wrong.`);
+  return { n: 8, W, go(step, fwd) {
+    W.clear();
+    P.forEach((o, i) => {
+      const p = PAIRS[i], done = step >= i, now = step === i;
+      W.show(o.v, now || (step === 7 && p.q));
+      W.show(o.short, step === 6);
+      o.A.classList.toggle("dim", step < 6 && !now && done); o.B.classList.toggle("dim", step < 6 && !now && done);
+      if (p.q) { W.put(o.A, o.x - 80, o.y, 0); W.put(o.B, o.x + 80, o.y, 0); return; }
+      if (p.isa) {
+        // the child sits on top of the parent
+        W.put(o.B, o.x, o.y, 0);
+        if (done) { if (now && fwd) { W.put(o.A, o.x - 80, o.y, 0); W.fly(o.A, [[o.x - 40, o.y, 120], [o.x, o.y, 60]], 1300, true, 300); } else W.put(o.A, o.x, o.y, 60); }
+        else { W.put(o.A, o.x - 80, o.y, 0); W.put(o.B, o.x + 80, o.y, 0); }
+      } else {
+        // the first one becomes a glass box that holds the second
+        W.show(o.glass, done); W.show(o.A, !done);
+        if (done) { if (now && fwd) { W.put(o.B, o.x + 80, o.y, 0); W.fly(o.B, [[o.x, o.y, 140], [o.x - 80, o.y, 4]], 1300, true, 300); } else W.put(o.B, o.x - 80, o.y, 4); }
+        else W.put(o.B, o.x + 80, o.y, 0);
+        if (done) o.glass.top.innerHTML = `<div class="ftxt dark mono" style="font-size:20px">${p.a}</div>`;
+      }
+    });
+    if (step <= 5 || step === 7) { const o = P[Math.min(step, 5)]; W.cam({ x: o.x + 110, y: o.y, s: .95, rz: 8, py: 210 }); }
+    else W.cam({ x: 430, y: 40, s: .62, rz: 8, py: 120 });
+    return { cap: caps[step], ck: step === 7 || step === 5 ? "warn" : "good" };
+  } };
+};
+
+window.OOP3D.run({
+  title: "OOP in Python · Week 7 · Lecture 1",
+  foot: "OOP in Python · Week 7 · Lecture 1",
+  slides: [
+    { type: "cover", scene: "cover", k: "WEEK 7 · LECTURE 1", t: "Building on another class", sub: `Inheritance and the "is-a" relationship`, badge: "OOP in Python · BS Computer Science" },
+    { scene: "dup", k: "WEEK 7 · LECTURE 1", t: "The same code, written twice" },
+    { scene: "form", k: "WEEK 7 · LECTURE 1", t: "A general form, plus extra pages" },
+    { scene: "code", k: "WEEK 7 · LECTURE 1", t: "Inheritance in code" },
+    { scene: "sup", k: "WEEK 7 · LECTURE 1", t: "super(): run the parent's setup first" },
+    { scene: "isa", k: "WEEK 7 · LECTURE 1", t: "The test: say it in English" },
+    { type: "practice", scene: "practice", k: "PRACTICE", t: "Problem 13 · is-a or has-a?" },
+    { type: "solution", scene: "solution", k: "SOLUTION", t: "Problem 13 · The answers" }
+  ]
+});
+})();
+</script>
+</body>
+</html>
