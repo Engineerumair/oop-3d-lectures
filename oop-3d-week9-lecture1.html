@@ -187,6 +187,10 @@ body { background: var(--page); color: var(--ui-fg); font-family: var(--f-body);
 .code.out { background: #F4FAF9; color: var(--ink); box-shadow: 0 4px 14px rgb(5 40 44 / .18); border: 2px solid var(--line); }
 .code.out .cttl { color: var(--muted); }
 .code.out span { color: inherit !important; font-weight: inherit; font-style: normal; }
+
+/* name-tag strings hide like everything else */
+.strip.hide, .ahead.hide { opacity: 0; }
+.strip.ref, .ahead { transition-property: transform, width, opacity; transition-duration: var(--move), var(--move), 400ms; }
 </style>
 </head>
 <body>
